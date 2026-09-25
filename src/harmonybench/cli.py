@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from typing import Annotated
 
 import typer
@@ -24,6 +25,7 @@ app = typer.Typer(
     help="HarmonyBench: benchmark AI models at reading harmony from music score images.",
 )
 console = Console()
+SEED_ENV = "HARMONYBENCH_SEED"
 
 ModelsArg = Annotated[
     list[str] | None, typer.Argument(help="Model ids and/or group names (see `harmonybench models`). Default: all.")
@@ -65,12 +67,30 @@ def _progress() -> Progress:
 @app.command()
 def build(
     per_chord: Annotated[int, typer.Option(help="Items per chord (alternating no key signature / key signature).")] = 2,
-    seed: Annotated[int, typer.Option(help="Random seed; the same seed rebuilds identical files.")] = 0,
+    seed: Annotated[
+        int | None,
+        typer.Option(help=f"Random seed; the same seed rebuilds identical files. Default: ${SEED_ENV} from .env."),
+    ] = None,
 ) -> None:
-    """Generate the root-position triad subset (images, MusicXML, labels, review page)."""
+    """Generate the root-position triad subset (images, MusicXML, labels, review page).
+
+    The real test set's seed is private (in .env), so the public code alone can't rebuild it."""
     from .build import SUBSET, generate
     from .dataset import subset_dir
 
+    if seed is None:
+        raw = os.environ.get(SEED_ENV, "").strip()
+        if not raw:
+            console.print(
+                f"[red]No seed: set {SEED_ENV} in .env (the private seed of the real test set) "
+                "or pass --seed for a throwaway build.[/]"
+            )
+            raise typer.Exit(1)
+        try:
+            seed = int(raw)
+        except ValueError:
+            console.print(f"[red]{SEED_ENV} must be an integer.[/]")
+            raise typer.Exit(1) from None
     out = subset_dir(SUBSET)
     items = generate(out, per_chord, seed)
     console.print(f"[green]✓[/] wrote {len(items)} verified items to {out.relative_to(ROOT)}")

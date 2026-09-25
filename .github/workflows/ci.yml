@@ -23,6 +23,6 @@ jobs:
         run: uv run pytest -q
       - name: Offline dry run of every configured model
         run: |
-          uv run harmonybench build
+          uv run harmonybench build --seed 0  # a throwaway set; the real seed is private
           uv run harmonybench run all --dry-run --limit 1 > /dev/null
           uv run harmonybench estimate

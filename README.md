@@ -33,7 +33,8 @@ An answer counts as correct only if the root is spelled as written (G♭ is not 
 quality is right. A rule-based parser double-checks every judgment and flags any
 disagreement for a person to look at.
 
-The chords themselves are not published, so they can't end up in training data.
+The chords themselves are not published, so they can't end up in training data. The code
+that generates them is public, but the random seed that picks the real test set is not.
 
 ## Run it yourself
 
@@ -41,8 +42,8 @@ You need [uv](https://docs.astral.sh/uv/) and API keys for the models you want t
 
 ```bash
 uv sync
-uv run harmonybench build                # generate the chords (data/triads_root/)
 cp .env.example .env                     # then add your API keys
+uv run harmonybench build --seed 1       # generate a set of chords (data/triads_root/)
 uv run harmonybench estimate anthropic   # see what a run will cost before paying for it
 uv run harmonybench run anthropic        # ask the models, then judge their answers
 uv run harmonybench score                # updates the results table above
