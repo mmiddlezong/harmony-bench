@@ -190,3 +190,30 @@ async def test_pipeline_judges_old_backlog_and_survives_a_config_mismatch(tmp_pa
     )
     assert runs["model-a"].attempted == 0 and judged["model-a"].attempted == 11
     assert isinstance(runs["model-b"], runner.RunConfigMismatch) and "model-b" not in judged
+
+
+async def test_repeats_add_samples_and_count_mixed_items(tmp_path, spec_factory, items, monkeypatch):
+    """A second pass (--repeats 2) adds a sample per item without touching the first; items
+    answered right once and wrong once count as mixed and score 0.5."""
+    spec, jspec, _, recs, judgments = await _run_and_judge(tmp_path, spec_factory, items, monkeypatch)
+
+    # Second pass: now every image answer is right ("C major"), so items 1-5 become mixed.
+    class RightNow(FakeModel):
+        async def complete(self, request):
+            return ProviderResult(text="C major", usage=Usage(input_tokens=500, output_tokens=100))
+
+    monkeypatch.setattr(runner, "make_provider", lambda s: RightNow(s))
+    s2 = await runner.run_model(spec, items, "triads_root", repeats=2, results_dir=tmp_path)
+    assert s2.skipped == 12 and s2.attempted == 12  # only the new samples are asked
+    j2 = await judge.judge_model(jspec, spec.id, items, "triads_root", results_dir=tmp_path)
+    assert j2.attempted == 12  # only the new answers are judged
+
+    recs = runner.read_records(runner.predictions_path(spec.id, "triads_root", tmp_path))
+    judgments = judge.current_judgments(spec.id, "triads_root", judge.judge_fingerprint(jspec, TRIADS_ROOT), tmp_path)
+    s = score_model(spec.id, items, recs, judgments)
+    img = s.conditions["image"]
+    assert img["samples_per_item"] == 2
+    # first pass: items 0 and 5 right; second pass: all right -> 0 and 5 score 1, the rest 0.5
+    assert img["accuracy"] == pytest.approx((1 + 0.5 * 4 + 1) / 6)
+    assert img["mixed_items"] == 4
+    assert s.conditions["musicxml"]["mixed_items"] == 0  # right both times

@@ -13,7 +13,8 @@ grades "correct". Secondary, where the task defines them:
 Conventions
 -----------
 * The unit of analysis is the item. With --repeats > 1, per-item correctness is averaged
-  over samples first, then over items (so every item carries equal weight).
+  over samples first, then over items (so every item carries equal weight). `mixed_items`
+  counts items a model got right on some samples and wrong on others.
 * A model failure (empty answer, refusal, truncation, or a judge verdict of no_answer)
   counts as wrong. This keeps denominators equal across models.
 * Infrastructure errors (status api_error) and answers the judge has not graded yet are
@@ -112,8 +113,14 @@ def _condition_stats(outcomes: list[Outcome], items: list[Item], condition: str,
         vals = [exact[i] for i in ids if pred(by_id[i])]
         return float(np.mean(vals)) if vals else None
 
+    samples = {}
+    for o in mine:
+        samples[o.item.item_id] = samples.get(o.item.item_id, 0) + 1
     return {
         "n_items": len(ids),
+        "samples_per_item": float(np.mean([samples[i] for i in ids])),
+        # items graded more than once with mixed results (right on some runs, wrong on others)
+        "mixed_items": sum(1 for i in ids if samples[i] > 1 and 0 < exact[i] < 1),
         "accuracy": float(acc.mean()),
         "accuracy_ci95": _bootstrap_ci(acc),
         "lenient_accuracy": float(np.mean([lenient[i] for i in ids])) if task.lenient else None,

@@ -62,8 +62,9 @@ def _name(registry: Registry | None, mid: str) -> tuple[str, str]:
     return mid, ""
 
 
-def _columns(task: Task) -> list[tuple[str, callable]]:
-    """(header, cell function) for every leaderboard column after the model name."""
+def _columns(task: Task, scores: list[ModelScore] | None = None) -> list[tuple[str, callable]]:
+    """(header, cell function) for every leaderboard column after the model name. A "Mixed"
+    column appears when any model has more than one sample per item."""
     first, others = task.conditions[0], task.conditions[1:]
 
     def acc(s):
@@ -82,6 +83,8 @@ def _columns(task: Task) -> list[tuple[str, callable]]:
         )
     if "musicxml" in others:
         cols.append(("Reading gap", lambda s: _pp(s.reading_gap.get("gap"))))
+    if any(s.primary.get("samples_per_item", 1) > 1 for s in scores or []):
+        cols.append(("Mixed", lambda s: f"{s.primary.get('mixed_items', 0)}/{s.primary['n_items']}"))
     cols += [
         ("Fail", lambda s: _pct(s.primary["failure_rate"])),
         ("Judge flags", lambda s: str(s.judge_disagreements)),
@@ -93,7 +96,7 @@ def _columns(task: Task) -> list[tuple[str, callable]]:
 
 def leaderboard_markdown(scores: list[ModelScore], registry: Registry | None, subset: str) -> str:
     task = get_task(subset)
-    cols = _columns(task)
+    cols = _columns(task, scores)
     ranked = [s for s in scores if s.primary]
     lines = [
         f"# HarmonyBench leaderboard: {subset} (prompt {task.version})",
@@ -120,7 +123,8 @@ def leaderboard_markdown(scores: list[ModelScore], registry: Registry | None, su
         )
         + "*Fail*: empty answers, refusals, truncations and answers that name nothing (all scored wrong). "
         "*Judge flags*: judge verdicts that disagree with the rule-based parser, worth checking by hand "
-        "(`harmonybench disagreements`). *Cost*: API spend to run every item once in every condition, at "
+        "(`harmonybench disagreements`). *Mixed*: items right on some runs and wrong on others (only with "
+        "`--repeats`). *Cost*: API spend to run every item once in every condition, at "
         "list prices. ⚠ = incomplete run.",
         "",
         "## Usage",

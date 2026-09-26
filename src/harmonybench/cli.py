@@ -258,7 +258,13 @@ def run(
     subset: SubsetOpt = DEFAULT_SUBSET,
     limit: LimitOpt = None,
     condition: ConditionOpt = None,
-    repeats: Annotated[int, typer.Option(help="Samples per item and condition (default 1).")] = 1,
+    repeats: Annotated[
+        int,
+        typer.Option(
+            help="Answers per item and condition. Raising it on an existing run adds new samples and keeps the "
+            "old ones, e.g. --repeats 2 asks every item a second time."
+        ),
+    ] = 1,
     concurrency: Annotated[
         int,
         typer.Option(
@@ -424,7 +430,7 @@ def score(
 
     reg, items, scores = _scores(subset, model_names)
     task = get_task(subset)
-    cols = _columns(task)
+    cols = _columns(task, scores)
     table = Table(title=f"HarmonyBench {subset} (prompt {task.version}) — ranked by {task.conditions[0]} accuracy")
     table.add_column("model")
     for header, _ in cols:
