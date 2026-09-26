@@ -159,3 +159,16 @@ def test_items_hash_skips_removed_items(tmp_path, monkeypatch):
     # "c" was answered but has since been removed from the subset: it no longer counts.
     assert dataset.items_hash({"a", "b", "c"}, "x") == dataset.items_hash({"a", "b"}, "x")
     assert dataset.items_hash({"a"}, "x") != dataset.items_hash({"a", "b"}, "x")
+
+
+def test_items_hash_ignores_notes(tmp_path, monkeypatch):
+    from harmonybench import dataset
+
+    manifest = tmp_path / "labels.jsonl"
+    monkeypatch.setattr(dataset, "items_path", lambda subset: manifest)
+    manifest.write_text('{"id": "a", "label": {"measure": 3}, "image_sha256": "x", "meta": {"note": 1}}\n')
+    before = dataset.items_hash({"a"}, "x")
+    manifest.write_text('{"id": "a", "label": {"measure": 3}, "image_sha256": "x", "meta": {}}\n')
+    assert dataset.items_hash({"a"}, "x") == before  # editing notes changes nothing
+    manifest.write_text('{"id": "a", "label": {"measure": 4}, "image_sha256": "x", "meta": {}}\n')
+    assert dataset.items_hash({"a"}, "x") != before  # changing the answer does

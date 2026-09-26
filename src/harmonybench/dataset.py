@@ -89,10 +89,11 @@ def manifest_hash(subset: str = DEFAULT_SUBSET) -> str:
 
 
 def items_hash(item_ids, subset: str = DEFAULT_SUBSET) -> str:
-    """Fingerprint of specific items (labels and file checksums), ignoring their position.
-    Lets results survive the subset changing: a run stays valid as long as every item it has
-    answers for is unchanged. Items since removed from the subset are skipped (their answers
-    are simply no longer scored)."""
+    """Fingerprint of what the model is tested on for specific items: the label and the
+    image / MusicXML checksums. Notes in `meta` are left out, so editing them never
+    invalidates results. Lets results survive the subset changing: a run stays valid as long
+    as every item it has answers for is unchanged. Items since removed from the subset are
+    skipped (their answers are simply no longer scored)."""
     rows = {}
     with items_path(subset).open() as f:
         for line in f:
@@ -101,5 +102,7 @@ def items_hash(item_ids, subset: str = DEFAULT_SUBSET) -> str:
                 rows[row["id"]] = row
     h = hashlib.sha256()
     for item_id in sorted(set(item_ids) & set(rows)):
-        h.update(json.dumps(rows[item_id], sort_keys=True).encode())
+        row = rows[item_id]
+        tested = {k: row.get(k) for k in ("id", "label", "image_sha256", "musicxml_sha256")}
+        h.update(json.dumps(tested, sort_keys=True).encode())
     return h.hexdigest()[:16]
