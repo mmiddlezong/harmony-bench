@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from harmonybench import runner
+from harmonybench import concurrency, runner
 from harmonybench.dataset import Item
 from harmonybench.providers.base import Provider, ProviderError, ProviderResult, Usage
 
@@ -28,6 +28,11 @@ class FakeProvider(Provider):
         usage = Usage(input_tokens=1000, output_tokens=1000)
         if mode == "error":
             raise RuntimeError("503 Service Unavailable")
+        if mode == "rate_limit_once":
+            self.behavior[idx] = "ok"
+            err = RuntimeError("rate limited")
+            err.status_code = 429
+            raise err
         if mode == "fatal":
             raise ProviderError("BadRequestError: invalid model")
         if mode == "refuse":
@@ -77,6 +82,14 @@ async def test_statuses_and_resume(tmp_path, spec_factory, items, use_fake):
     assert recs[-1]["raw_text"] == "This is a C major triad." and recs[-1]["condition"] == "image"
     meta = json.loads((runner.run_dir(spec.id, "triads_root", tmp_path) / "meta.json").read_text())
     assert meta["prompt_version"] == "v1" and meta["request_config"]["model"] == spec.model
+
+
+async def test_rate_limited_request_is_retried_in_place(tmp_path, spec_factory, items, use_fake, monkeypatch):
+    monkeypatch.setattr(concurrency, "BACKOFF_BASE_S", 0)
+    use_fake(behavior={2: "rate_limit_once"})
+    s = await runner.run_model(spec_factory(), items, "triads_root", conditions=("image",), results_dir=tmp_path)
+    assert s.statuses == {"ok": 6}  # no api_error record: the 429 was retried, not deferred to the next run
+    assert sorted(FakeProvider.calls).count((2, True)) == 2
 
 
 async def test_both_conditions(tmp_path, spec_factory, items, use_fake):

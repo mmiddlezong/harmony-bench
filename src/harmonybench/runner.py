@@ -24,6 +24,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from . import __version__
+from .concurrency import AdaptiveLimiter
 from .config import ModelSpec
 from .cost import estimate_cost, usage_cost
 from .dataset import Item, items_hash, manifest_hash
@@ -202,13 +203,13 @@ async def run_model(
 
     provider = make_provider(spec)
     per_req_estimate = {c: estimate_cost(spec, 1, c).expected_usd for c in conditions}
-    sem = asyncio.Semaphore(concurrency)
+    limiter = AdaptiveLimiter(concurrency)
     write_lock = asyncio.Lock()
     state = {"spent": 0.0, "inflight": 0.0, "consecutive_fatal": 0}
     stop = asyncio.Event()
 
     async def one(item: Item, condition: str, sample: int) -> None:
-        async with sem:
+        async with limiter:
             if stop.is_set():
                 return
             est = per_req_estimate[condition]
@@ -226,8 +227,14 @@ async def run_model(
                 "prompt_version": task.version,
             }
             t0 = time.perf_counter()
+
+            async def send():
+                nonlocal t0
+                t0 = time.perf_counter()  # latency of the final attempt, not of any backoff
+                return await provider.complete(build_request(item, condition))
+
             try:
-                result = await provider.complete(build_request(item, condition))
+                result = await limiter.call(send)
                 record["latency_s"] = round(time.perf_counter() - t0, 3)
                 cost = usage_cost(result.usage, spec)
                 if result.provider_cost_usd is not None:

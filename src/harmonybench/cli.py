@@ -202,40 +202,54 @@ def _redact(obj, prompts: set[str]):
     return obj
 
 
-def _judge(reg, model_ids: list[str], items, subset: str, concurrency: int) -> bool:
-    """Judge every ungraded answer for these models. Returns False if anything failed."""
-    from .judge import judge_model
-
+def _judge_spec(reg):
+    """The configured judge, or None (with a warning) if there is none or it has no key."""
     if reg.judge is None:
         console.print("[yellow]No judge configured in configs/models.yaml; answers stay ungraded.[/]")
-        return False
+        return None
     jspec = reg.judge_spec()
     if not jspec.has_credentials():
         console.print(f"[yellow]Judge {jspec.id} has no API key ({' or '.join(jspec.key_envs())}); skipping.[/]")
-        return False
+        return None
+    return jspec
+
+
+def _report_judging(summaries) -> bool:
+    """Print one line per judged model. Returns False if any judgment failed."""
     ok = True
-    for mid in model_ids:
-        with _progress() as prog:
-            task = prog.add_task(f"judging {mid}", total=None, spent="")
-            s = asyncio.run(
-                judge_model(
-                    jspec,
-                    mid,
-                    items,
-                    subset,
-                    concurrency=concurrency,
-                    on_start=lambda n, _t=task: prog.update(_t, total=n),
-                    on_record=lambda r, spent, _t=task: prog.update(_t, advance=1, spent=f"${spent:.4f}"),
-                )
-            )
+    for mid, s in summaries.items():
         if s.attempted:
             statuses = ", ".join(f"{k}: {v}" for k, v in sorted(s.statuses.items()))
             flag = f"; [yellow]{s.disagreements} flagged[/]" if s.disagreements else ""
             console.print(f"judge → {mid}: {s.attempted} graded ({statuses}){flag}; spent ${s.cost_usd:.4f}")
         if s.statuses.get("api_error") or s.statuses.get("parse_error"):
             ok = False
-            console.print("[yellow]Some judgments failed; run `harmonybench judge` to retry them.[/]")
+    if not ok:
+        console.print("[yellow]Some judgments failed; run `harmonybench judge` to retry them.[/]")
     return ok
+
+
+def _judge(reg, model_ids: list[str], items, subset: str, concurrency: int) -> bool:
+    """Judge every ungraded answer for these models. Returns False if anything failed."""
+    from .judge import judge_models
+
+    jspec = _judge_spec(reg)
+    if jspec is None:
+        return False
+    with _progress() as prog:
+        task = prog.add_task(f"judging ({jspec.id})", total=None, spent="")
+        summaries = asyncio.run(
+            judge_models(
+                jspec,
+                model_ids,
+                items,
+                subset,
+                concurrency=concurrency,
+                on_start=lambda n: prog.update(task, total=n),
+                on_record=lambda mid, r, spent: prog.update(task, advance=1, spent=f"${spent:.4f}"),
+            )
+        )
+    return _report_judging(summaries)
 
 
 @app.command()
@@ -245,17 +259,27 @@ def run(
     limit: LimitOpt = None,
     condition: ConditionOpt = None,
     repeats: Annotated[int, typer.Option(help="Samples per item and condition (default 1).")] = 1,
-    concurrency: Annotated[int, typer.Option("--concurrency", "-c", help="Parallel requests per model.")] = 8,
+    concurrency: Annotated[
+        int,
+        typer.Option(
+            "--concurrency", "-c", help="Max parallel requests per model (lowered automatically on rate limits)."
+        ),
+    ] = 16,
+    parallel_models: Annotated[
+        int | None, typer.Option("--parallel-models", "-p", help="Models to run at once. Default: all of them.")
+    ] = None,
+    judge_concurrency: Annotated[int, typer.Option(help="Max parallel judge requests.")] = 32,
     max_cost: Annotated[float | None, typer.Option(help="Per-model spend cap (USD).")] = None,
     fresh: Annotated[bool, typer.Option(help="Archive existing results for these models and start over.")] = False,
-    judge: Annotated[bool, typer.Option(help="Grade the answers with the judge model afterwards.")] = True,
+    judge: Annotated[bool, typer.Option(help="Grade the answers with the judge model as they come in.")] = True,
     yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip the cost confirmation prompt.")] = False,
     dry_run: Annotated[bool, typer.Option(help="Build one request per model and print it; send nothing.")] = False,
 ) -> None:
-    """Run models on the benchmark, then judge their answers. Resumable: re-running only
-    fills in missing answers and judgments."""
+    """Run models on the benchmark (all at once) and judge their answers as they come in.
+    Resumable: re-running only fills in missing answers and judgments."""
+    from .pipeline import run_and_judge
     from .providers import make_provider
-    from .runner import RunConfigMismatch, build_request, remaining, run_model
+    from .runner import RunConfigMismatch, build_request, remaining
 
     reg = load_registry()
     specs = reg.select(model_names)
@@ -293,39 +317,48 @@ def run(
         if not typer.confirm(f"Proceed? (expected ≈ ${ex:.2f}, range ${lo:.2f}–${hi:.2f})"):
             raise typer.Exit(0)
 
-    any_failed = False
-    ran = []
+    jspec = _judge_spec(reg) if judge else None
+    any_failed = judge and jspec is None
+    with _progress() as prog:
+        rows = {s.id: prog.add_task(s.id, total=None, spent="") for s in specs}
+        jrow = prog.add_task(f"[dim]judge ({jspec.id})[/]", total=0, spent="") if jspec else None
+
+        def on_record(mid: str, rec: dict, spent: float) -> None:
+            prog.update(rows[mid], advance=1, spent=f"${spent:.3f} · last: {rec['status']}")
+
+        queued = 0
+
+        def on_judge_queued(mid: str) -> None:
+            nonlocal queued
+            queued += 1
+            prog.update(jrow, total=queued)
+
+        runs, judged = asyncio.run(
+            run_and_judge(
+                specs,
+                items,
+                subset,
+                judge_spec=jspec,
+                conditions=conditions,
+                repeats=repeats,
+                concurrency=concurrency,
+                judge_concurrency=judge_concurrency,
+                parallel_models=parallel_models,
+                max_cost=max_cost,
+                fresh=fresh,
+                on_start=lambda mid, n: prog.update(rows[mid], total=n),
+                on_record=on_record,
+                on_judge_queued=on_judge_queued,
+                on_judged=lambda mid, out, spent: prog.update(jrow, advance=1, spent=f"${spent:.4f}"),
+            )
+        )
+
     for spec in specs:
-        console.rule(f"[bold]{spec.display_name}[/] ({spec.id})")
-        with _progress() as prog:
-            task = prog.add_task(spec.id, total=None, spent="")
-
-            def on_start(n_todo: int, _task=task) -> None:
-                prog.update(_task, total=n_todo)
-
-            def on_record(rec: dict, spent: float, _task=task) -> None:
-                prog.update(_task, advance=1, spent=f"${spent:.3f} · last: {rec['status']}")
-
-            try:
-                summary = asyncio.run(
-                    run_model(
-                        spec,
-                        items,
-                        subset,
-                        conditions=conditions,
-                        repeats=repeats,
-                        concurrency=concurrency,
-                        max_cost=max_cost,
-                        fresh=fresh,
-                        on_start=on_start,
-                        on_record=on_record,
-                    )
-                )
-            except RunConfigMismatch as e:
-                any_failed = True
-                console.print(f"[red]{e}[/]")
-                continue
-        ran.append(spec.id)
+        summary = runs[spec.id]
+        if isinstance(summary, RunConfigMismatch):
+            any_failed = True
+            console.print(f"[red]{summary}[/]")
+            continue
         statuses = ", ".join(f"{k}: {v}" for k, v in sorted(summary.statuses.items())) or "nothing to do"
         console.print(
             f"{spec.id}: {summary.skipped} already done, {summary.attempted} attempted "
@@ -333,14 +366,12 @@ def run(
         )
         if summary.aborted:
             any_failed = True
-            console.print(f"[red]aborted: {summary.aborted}[/]")
+            console.print(f"[red]  aborted: {summary.aborted}[/]")
         if summary.statuses.get("api_error"):
             any_failed = True
-            console.print("[yellow]Some requests hit API errors; re-run the same command to retry them.[/]")
-
-    if judge and ran:
-        console.rule("Judging answers")
-        any_failed |= not _judge(reg, ran, items, subset, concurrency=16)
+            console.print("[yellow]  some requests hit API errors; re-run the same command to retry them.[/]")
+    if judged:
+        any_failed |= not _report_judging(judged)
     console.print(f"\nNext: [bold]uv run harmonybench score --subset {subset}[/]")
     if any_failed:
         raise typer.Exit(2)
@@ -350,7 +381,7 @@ def run(
 def judge_cmd(
     model_names: ModelsArg = None,
     subset: SubsetOpt = DEFAULT_SUBSET,
-    concurrency: Annotated[int, typer.Option("--concurrency", "-c", help="Parallel judge requests.")] = 16,
+    concurrency: Annotated[int, typer.Option("--concurrency", "-c", help="Max parallel judge requests.")] = 32,
 ) -> None:
     """Grade answers that have no judgment yet (or were judged under an older judge setup)."""
     from .report import discover_models

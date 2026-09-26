@@ -20,6 +20,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .concurrency import AdaptiveLimiter
 from .config import ModelSpec
 from .cost import usage_cost
 from .dataset import Item
@@ -95,54 +96,64 @@ def _parse_judgment(text: str | None, verdicts: tuple[str, ...]) -> dict:
     }
 
 
-async def judge_model(
-    judge_spec: ModelSpec,
-    model_id: str,
-    items: list[Item],
-    subset: str,
-    *,
-    concurrency: int = 16,
-    results_dir: Path = RESULTS_DIR,
-    on_start=None,
-    on_record=None,
-) -> JudgeSummary:
-    """Judge every answered prediction of `model_id` that lacks a current judgment."""
-    task = get_task(subset)
-    fingerprint = judge_fingerprint(judge_spec, task)
-    schema = task.judge_schema()
-    by_id = {it.item_id: it for it in items}
-    todo = [r for r in pending(model_id, subset, fingerprint, results_dir) if r["item_id"] in by_id]
-    summary = JudgeSummary(model_id=model_id)
-    if on_start:
-        on_start(len(todo))
-    if not todo:
-        return summary
+class Judge:
+    """One judge client and concurrency limit, shared by every model being graded, so
+    answers can be judged the moment they arrive (see pipeline.py)."""
 
-    path = judgments_path(model_id, subset, results_dir)
-    provider = make_provider(judge_spec)
-    sem = asyncio.Semaphore(concurrency)
-    lock = asyncio.Lock()
+    def __init__(
+        self, spec: ModelSpec, items: list[Item], subset: str, *, concurrency: int = 16, results_dir=RESULTS_DIR
+    ):
+        self.spec = spec
+        self.subset = subset
+        self.results_dir = results_dir
+        self.task = get_task(subset)
+        self.fingerprint = judge_fingerprint(spec, self.task)
+        self.schema = self.task.judge_schema()
+        self.by_id = {it.item_id: it for it in items}
+        self.provider = make_provider(spec)
+        self.limiter = AdaptiveLimiter(concurrency)
+        self.summaries: dict[str, JudgeSummary] = {}
+        self.cost_usd = 0.0
+        self._lock = asyncio.Lock()
 
-    async def one(rec: dict) -> None:
-        item = by_id[rec["item_id"]]
+    def summary(self, model_id: str) -> JudgeSummary:
+        return self.summaries.setdefault(model_id, JudgeSummary(model_id=model_id))
+
+    def pending(self, model_id: str) -> list[dict]:
+        return [
+            r for r in pending(model_id, self.subset, self.fingerprint, self.results_dir) if r["item_id"] in self.by_id
+        ]
+
+    async def grade(self, model_id: str, rec: dict) -> dict:
+        """Judge one answered prediction, append the judgment to disk, and return it."""
+        task = self.task
+        item = self.by_id[rec["item_id"]]
+        summary = self.summary(model_id)
         text = rec.get("raw_text", "")
         out = {
             "item_id": rec["item_id"],
             "condition": rec["condition"],
             "sample": rec.get("sample", 0),
             "response_hash": response_hash(text),
-            "judge_fingerprint": fingerprint,
-            "judge_model": judge_spec.id,
+            "judge_fingerprint": self.fingerprint,
+            "judge_model": self.spec.id,
             "answer_key": task.answer(item),
         }
-        prompt = task.build_judge_prompt(item, text)
-        async with sem:
+        request = Request(prompt=task.build_judge_prompt(item, text), schema=self.schema, schema_name="judgment")
+        async with self.limiter:
             t0 = time.perf_counter()
+
+            async def send():
+                nonlocal t0
+                t0 = time.perf_counter()
+                return await self.provider.complete(request)
+
             try:
-                result = await provider.complete(Request(prompt=prompt, schema=schema, schema_name="judgment"))
-                cost = usage_cost(result.usage, judge_spec)
+                result = await self.limiter.call(send)
+                cost = usage_cost(result.usage, self.spec)
                 out.update({"usage": result.usage.to_dict(), "cost_usd": round(cost, 6)})
                 summary.cost_usd += cost
+                self.cost_usd += cost
                 try:
                     out.update(_parse_judgment(result.text, task.verdicts))
                     pv = task.parser_verdict(out["final_answer"], item) if task.parser_verdict else None
@@ -163,14 +174,72 @@ async def judge_model(
         out["timestamp"] = _now()
         summary.attempted += 1
         summary.statuses[out["status"]] = summary.statuses.get(out["status"], 0) + 1
-        async with lock:
-            with path.open("a") as f:
+        async with self._lock:
+            with judgments_path(model_id, self.subset, self.results_dir).open("a") as f:
                 f.write(json.dumps(out) + "\n")
+        return out
+
+    async def aclose(self) -> None:
+        await self.provider.aclose()
+
+
+async def judge_models(
+    judge_spec: ModelSpec,
+    model_ids: list[str],
+    items: list[Item],
+    subset: str,
+    *,
+    concurrency: int = 16,
+    results_dir: Path = RESULTS_DIR,
+    on_start=None,
+    on_record=None,
+) -> dict[str, JudgeSummary]:
+    """Judge every answered prediction of these models that lacks a current judgment,
+    all models at once through one shared judge."""
+    fingerprint = judge_fingerprint(judge_spec, get_task(subset))
+    ids = {it.item_id for it in items}
+    todo = [
+        (mid, r) for mid in model_ids for r in pending(mid, subset, fingerprint, results_dir) if r["item_id"] in ids
+    ]
+    if on_start:
+        on_start(len(todo))
+    if not todo:
+        return {mid: JudgeSummary(model_id=mid) for mid in model_ids}
+
+    judge = Judge(judge_spec, items, subset, concurrency=concurrency, results_dir=results_dir)
+
+    async def one(mid: str, rec: dict) -> None:
+        out = await judge.grade(mid, rec)
         if on_record:
-            on_record(out, summary.cost_usd)
+            on_record(mid, out, judge.cost_usd)
 
     try:
-        await asyncio.gather(*(one(r) for r in todo))
+        await asyncio.gather(*(one(mid, r) for mid, r in todo))
     finally:
-        await provider.aclose()
-    return summary
+        await judge.aclose()
+    return {mid: judge.summary(mid) for mid in model_ids}
+
+
+async def judge_model(
+    judge_spec: ModelSpec,
+    model_id: str,
+    items: list[Item],
+    subset: str,
+    *,
+    concurrency: int = 16,
+    results_dir: Path = RESULTS_DIR,
+    on_start=None,
+    on_record=None,
+) -> JudgeSummary:
+    """Judge every answered prediction of `model_id` that lacks a current judgment."""
+    summaries = await judge_models(
+        judge_spec,
+        [model_id],
+        items,
+        subset,
+        concurrency=concurrency,
+        results_dir=results_dir,
+        on_start=on_start,
+        on_record=on_record and (lambda _mid, out, spent: on_record(out, spent)),
+    )
+    return summaries[model_id]

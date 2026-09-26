@@ -1,10 +1,11 @@
 """End to end without the network: fake model answers -> fake judge -> scores."""
 
+import asyncio
 import json
 
 import pytest
 
-from harmonybench import judge, runner
+from harmonybench import judge, pipeline, runner
 from harmonybench.dataset import Item
 from harmonybench.metrics import collect_outcomes, compare_models, score_model
 from harmonybench.providers.base import Provider, ProviderResult, Usage
@@ -136,3 +137,56 @@ def test_bad_judgment_is_rejected():
         judge._parse_judgment(
             '{"final_answer": "C major", "verdict": "probably", "explanation": ""}', TRIADS_ROOT.verdicts
         )
+
+
+async def test_pipeline_runs_models_together_and_judges_as_answers_arrive(tmp_path, spec_factory, items, monkeypatch):
+    """Model B can't answer until the judge has graded one of model A's answers, so this
+    only finishes if models run concurrently and judging overlaps the runs."""
+    first_judgment = asyncio.Event()
+
+    class WaitsForJudge(FakeModel):
+        async def complete(self, request):
+            await first_judgment.wait()
+            return await super().complete(request)
+
+    a, b = spec_factory(id="model-a"), spec_factory(id="model-b")
+    jspec = spec_factory(id="judge", provider="openai")
+    monkeypatch.setattr(runner, "make_provider", lambda s: WaitsForJudge(s) if s.id == "model-b" else FakeModel(s))
+    monkeypatch.setattr(judge, "make_provider", lambda s: FakeJudge(s))
+    runs, judged = await asyncio.wait_for(
+        pipeline.run_and_judge(
+            [b, a],
+            items,
+            "triads_root",
+            judge_spec=jspec,
+            results_dir=tmp_path,
+            on_judged=lambda mid, out, spent: first_judgment.set(),
+        ),
+        timeout=5,
+    )
+    for mid in ("model-a", "model-b"):
+        assert runs[mid].attempted == 12
+        assert judged[mid].attempted == 11 and judged[mid].statuses == {"ok": 11}
+    # Nothing left over for `harmonybench judge`.
+    assert await judge.judge_model(jspec, "model-b", items, "triads_root", results_dir=tmp_path) == judge.JudgeSummary(
+        model_id="model-b"
+    )
+
+
+async def test_pipeline_judges_old_backlog_and_survives_a_config_mismatch(tmp_path, spec_factory, items, monkeypatch):
+    monkeypatch.setattr(runner, "make_provider", lambda s: FakeModel(s))
+    monkeypatch.setattr(judge, "make_provider", lambda s: FakeJudge(s))
+    a, b = spec_factory(id="model-a"), spec_factory(id="model-b")
+    await runner.run_model(a, items, "triads_root", results_dir=tmp_path)  # answered, never judged
+    await runner.run_model(b, items[:2], "triads_root", results_dir=tmp_path)
+    b_changed = spec_factory(id="model-b", params={"effort": "low"})
+
+    runs, judged = await pipeline.run_and_judge(
+        [a, b_changed],
+        items,
+        "triads_root",
+        judge_spec=spec_factory(id="judge", provider="openai"),
+        results_dir=tmp_path,
+    )
+    assert runs["model-a"].attempted == 0 and judged["model-a"].attempted == 11
+    assert isinstance(runs["model-b"], runner.RunConfigMismatch) and "model-b" not in judged

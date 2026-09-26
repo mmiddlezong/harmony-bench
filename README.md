@@ -45,9 +45,15 @@ uv sync
 cp .env.example .env                     # then add your API keys
 uv run harmonybench build --seed 1       # generate a set of chords (data/triads_root/)
 uv run harmonybench estimate anthropic   # see what a run will cost before paying for it
-uv run harmonybench run anthropic        # ask the models, then judge their answers
+uv run harmonybench run anthropic        # ask the models, judging answers as they come in
 uv run harmonybench score                # updates the results table above
 ```
+
+`run` asks every model at once, up to 16 requests in flight per model (`-c`), and grades
+each answer as soon as it arrives. When a provider rate-limits a model, that model slows
+itself down and retries; the other models aren't affected. `-p N` runs only N models at
+a time. If a run is interrupted, run the same command again: it only sends the requests
+that don't have an answer yet.
 
 Other commands: `harmonybench models` lists the configured models; `errors <model>` shows
 the chords a model got wrong; `disagreements` shows judgments the parser flagged;
