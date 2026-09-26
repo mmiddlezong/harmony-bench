@@ -8,6 +8,7 @@ from harmonybench import judge, runner
 from harmonybench.dataset import Item
 from harmonybench.metrics import collect_outcomes, compare_models, score_model
 from harmonybench.providers.base import Provider, ProviderResult, Usage
+from harmonybench.tasks import TRIADS_ROOT
 
 # Image-condition answers per item (every item's key is C major); MusicXML answers are all right.
 ANSWERS = {
@@ -51,7 +52,7 @@ class FakeJudge(Provider):
         return {}
 
     async def complete(self, request):
-        assert request.image is None and request.schema == judge.JUDGE_SCHEMA
+        assert request.image is None and request.schema == TRIADS_ROOT.judge_schema()
         FakeJudge.prompts.append(request.prompt)
         response = request.prompt.split("<response>\n", 1)[1].split("\n</response>", 1)[0]
         final, verdict = JUDGE[response]
@@ -74,11 +75,11 @@ async def _run_and_judge(tmp_path, spec_factory, items, monkeypatch):
     monkeypatch.setattr(runner, "make_provider", lambda s: FakeModel(s))
     monkeypatch.setattr(judge, "make_provider", lambda s: FakeJudge(s))
     FakeJudge.prompts = []
-    await runner.run_model(spec, items, "test", results_dir=tmp_path)
-    summary = await judge.judge_model(jspec, spec.id, items, "test", results_dir=tmp_path)
-    fp = judge.judge_fingerprint(jspec)
-    recs = runner.read_records(runner.predictions_path(spec.id, "test", tmp_path))
-    judgments = judge.current_judgments(spec.id, "test", fp, tmp_path)
+    await runner.run_model(spec, items, "triads_root", results_dir=tmp_path)
+    summary = await judge.judge_model(jspec, spec.id, items, "triads_root", results_dir=tmp_path)
+    fp = judge.judge_fingerprint(jspec, TRIADS_ROOT)
+    recs = runner.read_records(runner.predictions_path(spec.id, "triads_root", tmp_path))
+    judgments = judge.current_judgments(spec.id, "triads_root", fp, tmp_path)
     return spec, jspec, summary, recs, judgments
 
 
@@ -94,10 +95,10 @@ async def test_judge_grades_and_flags(tmp_path, spec_factory, items, monkeypatch
     ]
 
     # Judging again is a no-op; a new judge setup re-judges everything.
-    again = await judge.judge_model(jspec, spec.id, items, "test", results_dir=tmp_path)
+    again = await judge.judge_model(jspec, spec.id, items, "triads_root", results_dir=tmp_path)
     assert again.attempted == 0
     changed = spec_factory(id="judge", provider="openai", params={"reasoning_effort": "low"})
-    redo = await judge.judge_model(changed, spec.id, items, "test", results_dir=tmp_path)
+    redo = await judge.judge_model(changed, spec.id, items, "triads_root", results_dir=tmp_path)
     assert redo.attempted == 11
 
 
@@ -107,10 +108,10 @@ async def test_scores(tmp_path, spec_factory, items, monkeypatch):
     img, xml = s.conditions["image"], s.conditions["musicxml"]
     assert s.coverage == 1 and s.unjudged == 0 and s.judge_disagreements == 1
     assert img["accuracy"] == pytest.approx(2 / 6)  # items 0 and 5 (judge says correct)
-    assert img["enharmonic_accuracy"] == pytest.approx(3 / 6)
+    assert img["lenient_accuracy"] == pytest.approx(3 / 6)
     assert img["failure_rate"] == pytest.approx(2 / 6)  # refusal + no_answer
-    assert img["accuracy_with_accidentals"] == pytest.approx(1 / 3)  # items 0, 2, 4
-    assert img["accuracy_with_key_signature"] == pytest.approx(1 / 3)  # items 1, 3, 5
+    assert img["breakdowns"]["Accidentals"] == pytest.approx(1 / 3)  # items 0, 2, 4
+    assert img["breakdowns"]["Key sig."] == pytest.approx(1 / 3)  # items 1, 3, 5
     assert xml["accuracy"] == 1.0
     assert s.reading_gap["gap"] == pytest.approx(1 - 2 / 6)
 
@@ -132,4 +133,6 @@ async def test_compare(tmp_path, spec_factory, items, monkeypatch):
 
 def test_bad_judgment_is_rejected():
     with pytest.raises(ValueError):
-        judge._parse_judgment('{"final_answer": "C major", "verdict": "probably", "explanation": ""}')
+        judge._parse_judgment(
+            '{"final_answer": "C major", "verdict": "probably", "explanation": ""}', TRIADS_ROOT.verdicts
+        )

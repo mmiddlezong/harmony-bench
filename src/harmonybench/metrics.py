@@ -2,12 +2,13 @@
 
 Headline metric
 ---------------
-Accuracy on the image condition: the share of items where the judge says the model named
-the chord exactly (right root, spelled as written, and right quality). Secondary:
-  * enharmonic accuracy: also counts a root that sounds right but is spelled wrong
-  * MusicXML accuracy: the same items given as text instead of an image
+Accuracy on the task's first condition (the score image): the share of items the judge
+grades "correct". Secondary, where the task defines them:
+  * lenient accuracy: also credits near misses (e.g. an enharmonically spelled chord)
+  * accuracy on the other condition (e.g. the same items as MusicXML text)
   * reading gap: MusicXML accuracy minus image accuracy, over items answered in both.
     A large gap means the model understands the harmony but misreads the score.
+  * breakdowns: accuracy on subsets of items, and chance (a blind guess's accuracy)
 
 Conventions
 -----------
@@ -28,8 +29,8 @@ import numpy as np
 
 from .dataset import Item
 from .judge import response_hash
-from .prompt import CONDITIONS
 from .runner import FINAL_STATUSES
+from .tasks import Task, get_task
 
 BOOTSTRAP_SAMPLES = 10_000
 BOOTSTRAP_SEED = 0
@@ -97,13 +98,13 @@ def _bootstrap_ci(values: np.ndarray, n: int = BOOTSTRAP_SAMPLES) -> tuple[float
     return float(lo), float(hi)
 
 
-def _condition_stats(outcomes: list[Outcome], items: list[Item], condition: str) -> dict:
+def _condition_stats(outcomes: list[Outcome], items: list[Item], condition: str, task: Task) -> dict:
     exact = per_item(outcomes, condition)
     if not exact:
         return {}
     ids = [it.item_id for it in items if it.item_id in exact]
     acc = np.array([exact[i] for i in ids])
-    enh = per_item(outcomes, condition, credit=("correct", "enharmonic"))
+    lenient = per_item(outcomes, condition, credit=("correct", *task.lenient))
     mine = [o for o in outcomes if o.condition == condition]
     by_id = {it.item_id: it for it in items}
 
@@ -115,11 +116,10 @@ def _condition_stats(outcomes: list[Outcome], items: list[Item], condition: str)
         "n_items": len(ids),
         "accuracy": float(acc.mean()),
         "accuracy_ci95": _bootstrap_ci(acc),
-        "enharmonic_accuracy": float(np.mean([enh[i] for i in ids])),
+        "lenient_accuracy": float(np.mean([lenient[i] for i in ids])) if task.lenient else None,
         "failure_rate": float(np.mean([o.verdict in ("failed", "no_answer") for o in mine])),
-        "accuracy_by_quality": {q: acc_where(lambda it, q=q: it.label["quality"] == q) for q in ("major", "minor")},
-        "accuracy_with_key_signature": acc_where(lambda it: it.meta.get("key_signature", 0) != 0),
-        "accuracy_with_accidentals": acc_where(lambda it: it.meta.get("key_signature", 0) == 0),
+        "breakdowns": {name: acc_where(pred) for name, pred in task.breakdowns.items()},
+        "chance": float(np.mean([task.chance(by_id[i]) for i in ids])) if task.chance else None,
     }
 
 
@@ -136,8 +136,13 @@ class ModelScore:
     usage: dict = field(default_factory=dict)
 
     @property
-    def image_accuracy(self) -> float | None:
-        return self.conditions.get("image", {}).get("accuracy")
+    def primary(self) -> dict:
+        """Stats for the headline condition (the task's first: the score image)."""
+        return next(iter(self.conditions.values()), {})
+
+    @property
+    def accuracy(self) -> float | None:
+        return self.primary.get("accuracy")
 
     def to_dict(self) -> dict:
         return {
@@ -160,6 +165,8 @@ def score_model(
     judgments: dict,
     judge_records: list[dict] | None = None,
 ) -> ModelScore:
+    task = get_task(items[0].subset) if items else None
+    conditions = task.conditions if task else ()
     outcomes, unjudged = collect_outcomes(items, records, judgments)
     finals = final_records(records)
     counts: dict[str, int] = {}
@@ -171,13 +178,13 @@ def score_model(
     score = ModelScore(
         model_id=model_id,
         n_total=len(items),
-        coverage=len(graded_pairs) / (len(items) * len(CONDITIONS)) if items else 0.0,
+        coverage=len(graded_pairs) / (len(items) * len(conditions)) if items else 0.0,
         status_counts=counts,
         unjudged=unjudged,
         judge_disagreements=sum(1 for k, j in judgments.items() if k in used and j.get("agrees_with_parser") is False),
     )
-    for c in CONDITIONS:
-        stats = _condition_stats(outcomes, items, c)
+    for c in conditions:
+        stats = _condition_stats(outcomes, items, c, task)
         if stats:
             score.conditions[c] = stats
 
@@ -192,7 +199,7 @@ def score_model(
     judge_spent = sum(j.get("cost_usd", 0.0) or 0.0 for j in judge_records or [])
     per_cond_cost = {
         c: [r.get("cost_usd", 0.0) or 0.0 for r in recs if r["condition"] == c and r.get("status") in FINAL_STATUSES]
-        for c in CONDITIONS
+        for c in conditions
     }
     lat = [r["latency_s"] for r in recs if r.get("status") in FINAL_STATUSES and "latency_s" in r]
     outs = [r["usage"]["output_tokens"] for r in recs if r.get("usage")]
@@ -201,9 +208,6 @@ def score_model(
         "total_cost_usd": float(spent),
         "judge_cost_usd": float(judge_spent),
         "projected_cost_full_run_usd": float(sum(np.mean(v) * len(items) for v in per_cond_cost.values() if v)),
-        "projected_cost_image_run_usd": float(np.mean(per_cond_cost["image"]) * len(items))
-        if per_cond_cost["image"]
-        else 0.0,
         "mean_output_tokens": float(np.mean(outs)) if outs else 0.0,
         "mean_reasoning_tokens": float(np.mean(reas)) if reas else 0.0,
         "median_latency_s": float(np.median(lat)) if lat else 0.0,

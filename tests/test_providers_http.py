@@ -15,11 +15,12 @@ import re
 import pytest
 from werkzeug import Response
 
-from harmonybench.judge import JUDGE_SCHEMA as OUTPUT_SCHEMA
 from harmonybench.providers import ProviderError, Request, make_provider
+from harmonybench.tasks import TRIADS_ROOT
 
 IMAGE = b"\x89PNG\r\n\x1a\nfake-image-bytes"
 PROMPT = "What chord is this?"
+OUTPUT_SCHEMA = TRIADS_ROOT.judge_schema()
 # Image + schema exercises every request feature at once; the benchmark itself sends no
 # schema (free-text answers) and the judge sends no image.
 REQ = Request(prompt=PROMPT, image=IMAGE, schema=OUTPUT_SCHEMA, schema_name="chord_judgment")

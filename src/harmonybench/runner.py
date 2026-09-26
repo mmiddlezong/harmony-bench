@@ -1,10 +1,10 @@
 """Run one model over a subset: concurrent, resumable, and budget-capped.
 
-Layout:  results/<subset>/<prompt_version>/<model_id>/predictions.jsonl   (append-only)
-         results/<subset>/<prompt_version>/<model_id>/judgments.jsonl     (append-only, judge.py)
-         results/<subset>/<prompt_version>/<model_id>/meta.json
+Layout:  results/<subset>/<task_version>/<model_id>/predictions.jsonl   (append-only)
+         results/<subset>/<task_version>/<model_id>/judgments.jsonl     (append-only, judge.py)
+         results/<subset>/<task_version>/<model_id>/meta.json
 
-Every item is asked once per condition (image, musicxml). A request is keyed by
+Every item is asked once per condition of its task (e.g. image, musicxml). A request is keyed by
 (item, condition, sample) and is done once it has a record whose status is a *model
 outcome* (ok / empty / refusal / truncated). Records with status api_error (network
 trouble, rate limits, outages) are retried on the next invocation, so re-running the same
@@ -28,8 +28,8 @@ from .config import ModelSpec
 from .cost import estimate_cost, usage_cost
 from .dataset import Item, items_hash, manifest_hash
 from .paths import RESULTS_DIR, ROOT
-from .prompt import CONDITIONS, PROMPT_VERSION, build_prompt, prompt_hash
 from .providers import ProviderError, Request, make_provider
+from .tasks import get_task
 
 MEDIA_TYPE = "image/png"
 FINAL_STATUSES = {"ok", "empty", "refusal", "truncated"}
@@ -38,7 +38,7 @@ MAX_CONSECUTIVE_FATAL = 3
 
 
 def run_dir(model_id: str, subset: str, results_dir: Path = RESULTS_DIR) -> Path:
-    return results_dir / subset / PROMPT_VERSION / model_id
+    return results_dir / subset / get_task(subset).version / model_id
 
 
 def predictions_path(model_id: str, subset: str, results_dir: Path = RESULTS_DIR) -> Path:
@@ -61,9 +61,10 @@ def read_records(path: Path) -> list[dict]:
 
 
 def build_request(item: Item, condition: str) -> Request:
+    task = get_task(item.subset)
     if condition == "image":
-        return Request(prompt=build_prompt("image"), image=item.load_image(), media_type=MEDIA_TYPE)
-    return Request(prompt=build_prompt("musicxml", item.load_musicxml()))
+        return Request(prompt=task.build_prompt(item, "image"), image=item.load_image(), media_type=MEDIA_TYPE)
+    return Request(prompt=task.build_prompt(item, "musicxml", item.load_musicxml()))
 
 
 def _git_commit() -> str | None:
@@ -109,8 +110,8 @@ def _check_meta(meta_path: Path, spec: ModelSpec, subset: str, fresh: bool, answ
     current = {
         "model_id": spec.id,
         "subset": subset,
-        "prompt_version": PROMPT_VERSION,
-        "prompt_hash": prompt_hash(),
+        "prompt_version": get_task(subset).version,
+        "prompt_hash": get_task(subset).prompt_hash(),
         "manifest_hash": manifest_hash(subset),
         "request_config": spec.model_dump(include={"provider", "model", "params", "max_output_tokens"}),
     }
@@ -153,7 +154,7 @@ async def run_model(
     items: list[Item],
     subset: str,
     *,
-    conditions: tuple[str, ...] = CONDITIONS,
+    conditions: tuple[str, ...] | None = None,
     repeats: int = 1,
     concurrency: int = 8,
     max_cost: float | None = None,
@@ -162,6 +163,8 @@ async def run_model(
     on_start=None,
     on_record=None,
 ) -> RunSummary:
+    task = get_task(subset)
+    conditions = conditions or task.conditions
     out_dir = run_dir(spec.id, subset, results_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     pred_path = out_dir / "predictions.jsonl"
@@ -220,7 +223,7 @@ async def run_model(
                 "condition": condition,
                 "sample": sample,
                 "model_id": spec.id,
-                "prompt_version": PROMPT_VERSION,
+                "prompt_version": task.version,
             }
             t0 = time.perf_counter()
             try:

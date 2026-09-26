@@ -17,7 +17,7 @@ from .config import load_registry
 from .cost import estimate_cost
 from .dataset import DEFAULT_SUBSET, load_items
 from .paths import ROOT
-from .prompt import CONDITIONS, PROMPT_VERSION, PROMPTS
+from .tasks import TASKS, get_task
 
 app = typer.Typer(
     add_completion=False,
@@ -30,13 +30,13 @@ SEED_ENV = "HARMONYBENCH_SEED"
 ModelsArg = Annotated[
     list[str] | None, typer.Argument(help="Model ids and/or group names (see `harmonybench models`). Default: all.")
 ]
-SubsetOpt = Annotated[str, typer.Option("--subset", "-s", help="Which generated subset under data/.")]
+SubsetOpt = Annotated[str, typer.Option("--subset", "-s", help=f"Which subset under data/ ({', '.join(TASKS)}).")]
 LimitOpt = Annotated[
     int | None, typer.Option("--limit", "-n", help="Use only the first N items (items are stored shuffled).")
 ]
 ConditionOpt = Annotated[
     list[str] | None,
-    typer.Option("--condition", help="image and/or musicxml (repeatable). Default: both."),
+    typer.Option("--condition", help="image and/or musicxml (repeatable). Default: all of the task's conditions."),
 ]
 
 
@@ -45,11 +45,12 @@ def _main() -> None:
     load_dotenv(ROOT / ".env")
 
 
-def _conditions(conditions: list[str] | None) -> tuple[str, ...]:
-    chosen = tuple(conditions or CONDITIONS)
-    bad = [c for c in chosen if c not in CONDITIONS]
+def _conditions(conditions: list[str] | None, subset: str) -> tuple[str, ...]:
+    allowed = get_task(subset).conditions
+    chosen = tuple(conditions or allowed)
+    bad = [c for c in chosen if c not in allowed]
     if bad:
-        raise typer.BadParameter(f"unknown condition(s) {bad}; choose from {list(CONDITIONS)}")
+        raise typer.BadParameter(f"condition(s) {bad} not in {subset}; choose from {list(allowed)}")
     return chosen
 
 
@@ -176,7 +177,7 @@ def estimate(
     reg = load_registry()
     specs = reg.select(model_names)
     n = len(load_items(subset, limit)) * repeats
-    counts = {s.id: {c: n for c in _conditions(condition)} for s in specs}
+    counts = {s.id: {c: n for c in _conditions(condition, subset)} for s in specs}
     table, *_ = _estimate_table(specs, counts, reg.judge_spec() if reg.judge else None)
     console.print(table)
     console.print(
@@ -195,7 +196,7 @@ def _redact(obj, prompts: set[str]):
         return f"<{len(obj):,} image bytes>"
     if isinstance(obj, str):
         if obj in prompts:
-            return f"<prompt {PROMPT_VERSION}, {len(obj)} chars>"
+            return f"<prompt, {len(obj)} chars>"
         if len(obj) > 300:
             return f"{obj[:40]}…<{len(obj):,} chars>"
     return obj
@@ -259,10 +260,10 @@ def run(
     reg = load_registry()
     specs = reg.select(model_names)
     items = load_items(subset, limit)
-    conditions = _conditions(condition)
+    conditions = _conditions(condition, subset)
 
     if dry_run:
-        prompts = set(PROMPTS.values())
+        prompts: set[str] = set()
         for spec in specs:
             for c in conditions:
                 req = build_request(items[0], c)
@@ -373,10 +374,12 @@ def _scores(subset: str, model_names):
         wanted = {s.id for s in reg.select(model_names)}
         available = [m for m in available if m in wanted]
     if not available:
-        console.print(f"[yellow]No results under results/{subset}/{PROMPT_VERSION}/. Run `harmonybench run` first.[/]")
+        console.print(
+            f"[yellow]No results under results/{subset}/{get_task(subset).version}/. Run `harmonybench run` first.[/]"
+        )
         raise typer.Exit(1)
     items = load_items(subset)
-    return reg, items, score_all(items, available, subset, judge_fingerprint(reg.judge_spec()))
+    return reg, items, score_all(items, available, subset, judge_fingerprint(reg.judge_spec(), get_task(subset)))
 
 
 @app.command()
@@ -386,32 +389,24 @@ def score(
     write: Annotated[bool, typer.Option(help="Write leaderboard.md / leaderboard.json.")] = True,
 ) -> None:
     """Score judged answers and write the leaderboard."""
+    from .report import _columns
+
     reg, items, scores = _scores(subset, model_names)
-    table = Table(title=f"HarmonyBench {subset} (prompt {PROMPT_VERSION}) — ranked by image accuracy")
-    for col in ("model", "image acc", "95% CI", "enharm.", "musicxml acc", "gap", "fail", "flags", "cost", "n"):
-        table.add_column(col, justify="left" if col == "model" else "right")
+    task = get_task(subset)
+    cols = _columns(task)
+    table = Table(title=f"HarmonyBench {subset} (prompt {task.version}) — ranked by {task.conditions[0]} accuracy")
+    table.add_column("model")
+    for header, _ in cols:
+        table.add_column(header, justify="right")
     unjudged = 0
     for s in scores:
         unjudged += s.unjudged
-        img = s.conditions.get("image")
-        if not img:
-            continue
-        lo, hi = img["accuracy_ci95"]
-        xml = s.conditions.get("musicxml", {}).get("accuracy")
-        gap = s.reading_gap.get("gap")
-        table.add_row(
-            s.model_id,
-            f"{100 * img['accuracy']:.0f}%",
-            f"{100 * lo:.0f}–{100 * hi:.0f}%",
-            f"{100 * img['enharmonic_accuracy']:.0f}%",
-            "–" if xml is None else f"{100 * xml:.0f}%",
-            "–" if gap is None else f"{100 * gap:+.0f}",
-            f"{100 * img['failure_rate']:.0f}%",
-            str(s.judge_disagreements),
-            f"${s.usage.get('projected_cost_full_run_usd', 0):.2f}",
-            f"{img['n_items']}/{s.n_total}",
-        )
+        if s.primary:
+            table.add_row(s.model_id, *(f(s) for _, f in cols))
     console.print(table)
+    chance = next((s.primary.get("chance") for s in scores if s.primary), None)
+    if chance is not None:
+        console.print(f"A blind guess would score {100 * chance:.0f}% on average.")
     if unjudged:
         console.print(f"[yellow]{unjudged} answers are not judged yet and are left out; run `harmonybench judge`.[/]")
     if any(s.judge_disagreements for s in scores):
@@ -423,7 +418,7 @@ def score(
 
         md, js = write_leaderboard(scores, reg, subset)
         console.print(f"[green]✓[/] wrote {md.relative_to(ROOT)} and {js.relative_to(ROOT)}")
-        if not model_names and update_readme(ROOT / "README.md", scores, reg, len(items)):
+        if task.readme and not model_names and update_readme(ROOT / "README.md", scores, reg, len(items)):
             console.print("[green]✓[/] updated the README leaderboard (complete runs only)")
 
 
@@ -432,7 +427,7 @@ def compare(
     model_a: str,
     model_b: str,
     subset: SubsetOpt = DEFAULT_SUBSET,
-    condition: Annotated[str, typer.Option(help="image or musicxml.")] = "image",
+    condition: Annotated[str | None, typer.Option(help="image or musicxml. Default: the task's first.")] = None,
 ) -> None:
     """Paired bootstrap test: is model A's accuracy different from model B's?"""
     from .judge import current_judgments, judge_fingerprint
@@ -440,8 +435,9 @@ def compare(
     from .runner import predictions_path, read_records
 
     reg = load_registry()
-    fp = judge_fingerprint(reg.judge_spec())
+    fp = judge_fingerprint(reg.judge_spec(), get_task(subset))
     items = load_items(subset)
+    condition = condition or get_task(subset).conditions[0]
 
     def outcomes(mid):
         return collect_outcomes(items, read_records(predictions_path(mid, subset)), current_judgments(mid, subset, fp))[
@@ -465,11 +461,25 @@ def compare(
     console.print(f"→ {better} is better; difference is [bold]{verdict}[/] at α = 0.05")
 
 
+def _item_context(item) -> str:
+    """A short description of the item for error analysis."""
+    m = item.meta
+    if "voicing" in m:
+        v = m["voicing"]
+        return " ".join(f"{k} {v[k]}" for k in "SATB" if k in v) + f"; key signature {m.get('key_signature', 0):+d}"
+    if "first_measure" in m:
+        out = f"measures {m['first_measure']}–{m['last_measure']}"
+        g = m.get("change_guess")
+        if g:
+            sure = "confirmed" if g.get("confirmed") else "unconfirmed"
+            out += f"; changed note ({sure}): {g.get('staff')} beat {g.get('beat')}, {g.get('altered_to')}"
+        return out
+    return ""
+
+
 def _print_outcome(o, show_text: bool) -> None:
-    v = o.item.meta.get("voicing", {})
-    voicing = " ".join(f"{k} {v[k]}" for k in "SATB" if k in v)
     console.rule(f"{o.item.item_id} · {o.condition} · [bold]{o.verdict}[/]")
-    console.print(f"[bold]key[/] {o.item.answer}   ({voicing}; key signature {o.item.meta.get('key_signature', 0):+d})")
+    console.print(f"[bold]key[/] {get_task(o.item.subset).answer(o.item)}   ({_item_context(o.item)})")
     if o.judgment:
         j = o.judgment
         console.print(f"[bold]model said[/] {j.get('final_answer') or '—'}   [dim]judge: {j.get('explanation', '')}[/]")
@@ -487,7 +497,7 @@ def _outcomes_for(model_id: str, subset: str):
     from .metrics import collect_outcomes
     from .runner import predictions_path, read_records
 
-    fp = judge_fingerprint(load_registry().judge_spec())
+    fp = judge_fingerprint(load_registry().judge_spec(), get_task(subset))
     items = load_items(subset)
     return collect_outcomes(
         items, read_records(predictions_path(model_id, subset)), current_judgments(model_id, subset, fp)
@@ -498,11 +508,12 @@ def _outcomes_for(model_id: str, subset: str):
 def errors(
     model_id: str,
     subset: SubsetOpt = DEFAULT_SUBSET,
-    condition: Annotated[str, typer.Option(help="image or musicxml.")] = "image",
+    condition: Annotated[str | None, typer.Option(help="image or musicxml. Default: the task's first.")] = None,
     n: Annotated[int, typer.Option("-n", help="How many to show.")] = 20,
     full: Annotated[bool, typer.Option(help="Also print the model's whole response.")] = False,
 ) -> None:
     """Show the items a model got wrong (for error analysis)."""
+    condition = condition or get_task(subset).conditions[0]
     wrong = [o for o in _outcomes_for(model_id, subset) if o.condition == condition and o.verdict != "correct"]
     console.print(f"{len(wrong)} wrong answers for {model_id} ({condition})")
     for o in wrong[:n]:
@@ -536,11 +547,12 @@ def disagreements(
 
 
 @app.command()
-def prompt() -> None:
-    """Print the exact prompts sent with every item."""
-    for c in CONDITIONS:
-        console.print(f"[bold]Prompt {PROMPT_VERSION} · {c}[/]\n")
-        print(PROMPTS[c].replace("{musicxml}", "<the item's MusicXML file>"))
+def prompt(subset: SubsetOpt = DEFAULT_SUBSET) -> None:
+    """Print the prompt templates for a subset ({fields} are filled in per item)."""
+    task = get_task(subset)
+    for c in task.conditions:
+        console.print(f"[bold]{subset} · prompt {task.version} · {c}[/]\n", highlight=False)
+        print(task.prompts[c].replace("{musicxml}", "<the item's MusicXML file>"))
         print()
 
 

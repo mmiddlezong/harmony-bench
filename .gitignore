@@ -15,6 +15,9 @@ build/
 # (rebuild with `harmonybench build`)
 data/
 
+# Results on the real benchmark subsets stay local too (they pair item ids with answers)
+results/wrong_note/
+
 # OS / editor
 .DS_Store
 .idea/

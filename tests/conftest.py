@@ -40,7 +40,7 @@ def make_item(index: int, root: str = "C", quality: str = "major", key_signature
     return Item(
         index=index,
         item_id=f"item-{index:03d}",
-        subset="test",
+        subset="triads_root",
         image=f"images/item-{index:03d}.png",
         musicxml=f"musicxml/item-{index:03d}.musicxml",
         image_sha256="",

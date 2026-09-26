@@ -12,12 +12,14 @@ from .dataset import Item
 from .judge import current_judgments, judgments_path
 from .metrics import ModelScore, score_model
 from .paths import RESULTS_DIR
-from .prompt import PROMPT_VERSION
 from .runner import predictions_path, read_records
+from .tasks import Task, get_task
+
+CONDITION_NAMES = {"image": "Image", "musicxml": "MusicXML"}
 
 
 def results_base(subset: str, results_dir: Path = RESULTS_DIR) -> Path:
-    return results_dir / subset / PROMPT_VERSION
+    return results_dir / subset / get_task(subset).version
 
 
 def discover_models(subset: str, results_dir: Path = RESULTS_DIR) -> list[str]:
@@ -37,7 +39,7 @@ def score_all(
             judgments = current_judgments(mid, subset, judge_fingerprint, results_dir)
             judge_recs = read_records(judgments_path(mid, subset, results_dir))
             scores.append(score_model(mid, items, recs, judgments, judge_recs))
-    scores.sort(key=lambda s: -(s.image_accuracy if s.image_accuracy is not None else -1))
+    scores.sort(key=lambda s: -(s.accuracy if s.accuracy is not None else -1))
     return scores
 
 
@@ -60,46 +62,68 @@ def _name(registry: Registry | None, mid: str) -> tuple[str, str]:
     return mid, ""
 
 
-def leaderboard_markdown(scores: list[ModelScore], registry: Registry | None, subset: str) -> str:
-    lines = [
-        f"# HarmonyBench leaderboard: {subset} (prompt {PROMPT_VERSION})",
-        "",
-        f"_Generated {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}. "
-        "Ranked by accuracy on score images. 95% CIs from 10,000 item-level bootstrap resamples._",
-        "",
-        "| # | Model | Image accuracy (95% CI) | Enharmonic | Key sig. | Accidentals | MusicXML accuracy "
-        "| Reading gap | Fail | Judge flags | Cost | n |",
-        "|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
-    ]
-    rank = 0
-    for s in scores:
-        img = s.conditions.get("image")
-        if not img:
-            continue
-        rank += 1
-        name, _ = _name(registry, s.model_id)
-        lo, hi = img["accuracy_ci95"]
-        xml = s.conditions.get("musicxml", {})
-        n = f"{img['n_items']}/{s.n_total}" + ("" if s.coverage == 1 else " ⚠")
-        lines.append(
-            f"| {rank} | **{name}** | {_pct(img['accuracy'])} ({_pct(lo)}–{_pct(hi)}) "
-            f"| {_pct(img['enharmonic_accuracy'])} | {_pct(img['accuracy_with_key_signature'])} "
-            f"| {_pct(img['accuracy_with_accidentals'])} | {_pct(xml.get('accuracy'))} "
-            f"| {_pp(s.reading_gap.get('gap'))} | {_pct(img['failure_rate'])} | {s.judge_disagreements} "
-            f"| ${s.usage.get('projected_cost_full_run_usd', 0):.2f} | {n} |"
+def _columns(task: Task) -> list[tuple[str, callable]]:
+    """(header, cell function) for every leaderboard column after the model name."""
+    first, others = task.conditions[0], task.conditions[1:]
+
+    def acc(s):
+        p = s.primary
+        lo, hi = p["accuracy_ci95"]
+        return f"{_pct(p['accuracy'])} ({_pct(lo)}–{_pct(hi)})"
+
+    cols = [(f"{CONDITION_NAMES.get(first, first)} accuracy (95% CI)", acc)]
+    if task.lenient:
+        cols.append((task.lenient_name, lambda s: _pct(s.primary.get("lenient_accuracy"))))
+    for name in task.breakdowns:
+        cols.append((name, lambda s, name=name: _pct(s.primary["breakdowns"].get(name))))
+    for c in others:
+        cols.append(
+            (f"{CONDITION_NAMES.get(c, c)} accuracy", lambda s, c=c: _pct(s.conditions.get(c, {}).get("accuracy")))
         )
+    if "musicxml" in others:
+        cols.append(("Reading gap", lambda s: _pp(s.reading_gap.get("gap"))))
+    cols += [
+        ("Fail", lambda s: _pct(s.primary["failure_rate"])),
+        ("Judge flags", lambda s: str(s.judge_disagreements)),
+        ("Cost", lambda s: f"${s.usage.get('projected_cost_full_run_usd', 0):.2f}"),
+        ("n", lambda s: f"{s.primary['n_items']}/{s.n_total}" + ("" if s.coverage == 1 else " ⚠")),
+    ]
+    return cols
+
+
+def leaderboard_markdown(scores: list[ModelScore], registry: Registry | None, subset: str) -> str:
+    task = get_task(subset)
+    cols = _columns(task)
+    ranked = [s for s in scores if s.primary]
+    chance = ranked[0].primary.get("chance") if ranked else None
+    lines = [
+        f"# HarmonyBench leaderboard: {subset} (prompt {task.version})",
+        "",
+        f"_Generated {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}. Ranked by "
+        f"{CONDITION_NAMES.get(task.conditions[0], task.conditions[0]).lower()} accuracy. 95% CIs from 10,000 "
+        "item-level bootstrap resamples."
+        + (f" A blind guess would score {_pct(chance)} on average." if chance is not None else "")
+        + "_",
+        "",
+        "| # | Model | " + " | ".join(h for h, _ in cols) + " |",
+        "|---:|---|" + "|".join("---:" if i else "---" for i in range(len(cols))) + "|",
+    ]
+    for rank, s in enumerate(ranked, 1):
+        name, _ = _name(registry, s.model_id)
+        lines.append(f"| {rank} | **{name}** | " + " | ".join(f(s) for _, f in cols) + " |")
     lines += [
         "",
-        "**Columns.** *Image accuracy*: share of score images where the model named the chord exactly "
-        "(root spelled as written, and the right quality), as graded by the judge model. "
-        "*Enharmonic*: also counts a root that sounds right but is spelled differently (F# for Gb). "
-        "*Key sig.* / *Accidentals*: image accuracy on items written with a key signature / with no key "
-        "signature and accidentals on the notes. *MusicXML accuracy*: the same items given as MusicXML "
-        "text instead of an image. *Reading gap*: MusicXML accuracy minus image accuracy on the same items; "
-        "a large gap means the model knows the harmony but misreads the image. *Fail*: empty answers, "
-        "refusals, truncations and answers that name no chord (all scored wrong). *Judge flags*: judge "
-        "verdicts that disagree with the rule-based parser, worth checking by hand "
-        "(`harmonybench disagreements`). *Cost*: API spend to run every item once in both conditions, at "
+        "**Columns.** *Accuracy*: share of items the judge model graded correct. "
+        + (f"*{task.lenient_name}*: also counts near misses ({', '.join(task.lenient)}). " if task.lenient else "")
+        + (
+            "*Reading gap*: MusicXML accuracy minus image accuracy on the same items; a large gap means the "
+            "model knows the harmony but misreads the image. "
+            if "musicxml" in task.conditions
+            else ""
+        )
+        + "*Fail*: empty answers, refusals, truncations and answers that name nothing (all scored wrong). "
+        "*Judge flags*: judge verdicts that disagree with the rule-based parser, worth checking by hand "
+        "(`harmonybench disagreements`). *Cost*: API spend to run every item once in every condition, at "
         "list prices. ⚠ = incomplete run.",
         "",
         "## Usage",
@@ -132,7 +156,7 @@ def write_leaderboard(
         json.dumps(
             {
                 "subset": subset,
-                "prompt_version": PROMPT_VERSION,
+                "prompt_version": get_task(subset).version,
                 "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
                 "models": [s.to_dict() for s in scores],
             },
@@ -148,7 +172,7 @@ README_END = "<!-- LEADERBOARD:END -->"
 
 
 def readme_block(scores: list[ModelScore], registry: Registry | None, n_items: int) -> str:
-    """Leaderboard table for the top of the README: complete runs only."""
+    """Leaderboard table for the top of the README (triads_root): complete runs only."""
     done = [s for s in scores if s.conditions.get("image") and s.coverage >= 1]
     lines = [
         "| Rank | Model | Named the chord correctly | Same chord, given as text | Cost |",
