@@ -8,7 +8,11 @@ for four voices (soprano, alto, tenor, bass) on a grand staff. The model has to 
 ## Results
 
 <!-- LEADERBOARD:START -->
-No results yet.
+| Rank | Model | Named the chord correctly | Same chord, given as text | Cost |
+|:---:|---|---:|---:|---:|
+| 1 | **GPT-6 Sol** (OpenAI) | **95%** (88%–100%) | 100% | $0.38 |
+
+Each model saw 60 chords, one image at a time, and was asked to name each one. The range in parentheses is a 95% confidence interval: when two models' ranges overlap, the difference between them may be luck. "Same chord, given as text" is the score when the model got the same chords as MusicXML instead of a picture. "Cost" is the API bill for one run over every chord in both forms. Updated September 26, 2026.
 <!-- LEADERBOARD:END -->
 
 ## How the test works
