@@ -499,12 +499,7 @@ def _item_context(item) -> str:
         v = m["voicing"]
         return " ".join(f"{k} {v[k]}" for k in "SATB" if k in v) + f"; key signature {m.get('key_signature', 0):+d}"
     if "first_measure" in m:
-        out = f"measures {m['first_measure']}–{m['last_measure']}"
-        g = m.get("change_guess")
-        if g:
-            sure = "confirmed" if g.get("confirmed") else "unconfirmed"
-            out += f"; changed note ({sure}): {g.get('staff')} beat {g.get('beat')}, {g.get('altered_to')}"
-        return out
+        return f"measures {m['first_measure']}–{m['last_measure']}"
     return ""
 
 

@@ -30,7 +30,7 @@ def test_wrong_note_judge_sees_only_the_response_and_the_key():
     item = wrong_note_item(first=24, last=29)
     j = WRONG_NOTE.build_judge_prompt(item, "It's in bar 29.")
     assert "Correct answer: measure 29" in j and "It's in bar 29." in j
-    assert "24" not in j and "change_guess" not in j
+    assert "24" not in j  # nothing but the response and the key
     assert WRONG_NOTE.judge_schema()["required"] == ["verdict"]
 
 
