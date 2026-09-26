@@ -6,7 +6,7 @@ from harmonybench.metrics import score_model
 from harmonybench.tasks import TASKS, TRIADS_ROOT, WRONG_NOTE, get_task
 
 
-def wrong_note_item(index=0, measure=29, first=24, last=29, **meta) -> Item:
+def wrong_note_item(index=0, measure=29) -> Item:
     return Item(
         index=index,
         item_id=f"wrong_note-{index:03d}",
@@ -14,7 +14,7 @@ def wrong_note_item(index=0, measure=29, first=24, last=29, **meta) -> Item:
         image="images/x.png",
         image_sha256="",
         label={"measure": measure},
-        meta={"first_measure": first, "last_measure": last, "n_measures": last - first + 1, **meta},
+        meta={"source": "test"},
     )
 
 
@@ -27,15 +27,14 @@ def test_wrong_note_prompt():
 
 
 def test_wrong_note_judge_sees_only_the_response_and_the_key():
-    item = wrong_note_item(first=24, last=29)
+    item = wrong_note_item()
     j = WRONG_NOTE.build_judge_prompt(item, "It's in bar 29.")
     assert "Correct answer: measure 29" in j and "It's in bar 29." in j
-    assert "24" not in j  # nothing but the response and the key
     assert WRONG_NOTE.judge_schema()["required"] == ["verdict"]
 
 
-def test_wrong_note_scoring_reports_chance():
-    items = [wrong_note_item(i, measure=29) for i in range(2)]  # 6 measures each -> chance 1/6
+def test_wrong_note_scoring():
+    items = [wrong_note_item(i, measure=29) for i in range(2)]
     records, judgments = [], {}
     for i, (it, verdict) in enumerate(zip(items, ["correct", "incorrect"], strict=True)):
         records.append({"item_id": it.item_id, "condition": "image", "sample": 0, "status": "ok", "raw_text": str(i)})
@@ -45,7 +44,7 @@ def test_wrong_note_scoring_reports_chance():
         }
     s = score_model("m", items, records, judgments)
     assert list(s.conditions) == ["image"] and s.coverage == 1
-    assert s.accuracy == 0.5 and s.primary["chance"] == pytest.approx(1 / 6)
+    assert s.accuracy == 0.5
     assert s.primary["lenient_accuracy"] is None and s.reading_gap == {}
 
 
@@ -66,4 +65,4 @@ def test_wrong_note_manifest_loads_if_present():
     except FileNotFoundError:
         pytest.skip("data/wrong_note is private and not in the repo")
     assert all(it.label["measure"] for it in items)
-    assert all(it.meta["first_measure"] <= it.label["measure"] <= it.meta["last_measure"] for it in items)
+    assert all(it.meta.get("source") for it in items)

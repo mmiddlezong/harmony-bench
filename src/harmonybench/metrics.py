@@ -8,7 +8,7 @@ grades "correct". Secondary, where the task defines them:
   * accuracy on the other condition (e.g. the same items as MusicXML text)
   * reading gap: MusicXML accuracy minus image accuracy, over items answered in both.
     A large gap means the model understands the harmony but misreads the score.
-  * breakdowns: accuracy on subsets of items, and chance (a blind guess's accuracy)
+  * breakdowns: accuracy on subsets of items
 
 Conventions
 -----------
@@ -119,7 +119,6 @@ def _condition_stats(outcomes: list[Outcome], items: list[Item], condition: str,
         "lenient_accuracy": float(np.mean([lenient[i] for i in ids])) if task.lenient else None,
         "failure_rate": float(np.mean([o.verdict in ("failed", "no_answer") for o in mine])),
         "breakdowns": {name: acc_where(pred) for name, pred in task.breakdowns.items()},
-        "chance": float(np.mean([task.chance(by_id[i]) for i in ids])) if task.chance else None,
     }
 
 

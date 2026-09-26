@@ -95,15 +95,12 @@ def leaderboard_markdown(scores: list[ModelScore], registry: Registry | None, su
     task = get_task(subset)
     cols = _columns(task)
     ranked = [s for s in scores if s.primary]
-    chance = ranked[0].primary.get("chance") if ranked else None
     lines = [
         f"# HarmonyBench leaderboard: {subset} (prompt {task.version})",
         "",
         f"_Generated {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}. Ranked by "
         f"{CONDITION_NAMES.get(task.conditions[0], task.conditions[0]).lower()} accuracy. 95% CIs from 10,000 "
-        "item-level bootstrap resamples."
-        + (f" A blind guess would score {_pct(chance)} on average." if chance is not None else "")
-        + "_",
+        "item-level bootstrap resamples." + "_",
         "",
         "| # | Model | " + " | ".join(h for h, _ in cols) + " |",
         "|---:|---|" + "|".join("---:" if i else "---" for i in range(len(cols))) + "|",

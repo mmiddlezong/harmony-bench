@@ -50,7 +50,6 @@ class Task:
     lenient: tuple[str, ...] = ()  # verdicts that also earn credit in the lenient score
     lenient_name: str = ""
     breakdowns: dict[str, Callable[[Item], bool]] = field(default_factory=dict)  # accuracy on subsets
-    chance: Callable[[Item], float] | None = None  # probability of a correct blind guess
     readme: bool = False  # does `score` write this task's table into the README?
 
     def build_prompt(self, item: Item, condition: str, musicxml: str | None = None) -> str:
@@ -188,7 +187,6 @@ WRONG_NOTE = Task(
     parser_verdict=None,
     judge_extracts=False,
     manifest="labels.jsonl",
-    chance=lambda item: 1 / item.meta["n_measures"],
 )
 
 

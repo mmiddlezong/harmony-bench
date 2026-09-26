@@ -435,9 +435,6 @@ def score(
         if s.primary:
             table.add_row(s.model_id, *(f(s) for _, f in cols))
     console.print(table)
-    chance = next((s.primary.get("chance") for s in scores if s.primary), None)
-    if chance is not None:
-        console.print(f"A blind guess would score {100 * chance:.0f}% on average.")
     if unjudged:
         console.print(f"[yellow]{unjudged} answers are not judged yet and are left out; run `harmonybench judge`.[/]")
     if any(s.judge_disagreements for s in scores):
@@ -498,8 +495,8 @@ def _item_context(item) -> str:
     if "voicing" in m:
         v = m["voicing"]
         return " ".join(f"{k} {v[k]}" for k in "SATB" if k in v) + f"; key signature {m.get('key_signature', 0):+d}"
-    if "first_measure" in m:
-        return f"measures {m['first_measure']}–{m['last_measure']}"
+    if "source" in m:
+        return m["source"]
     return ""
 
 
