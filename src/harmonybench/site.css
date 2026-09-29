@@ -136,3 +136,14 @@ td.brace span { position: absolute; top: 12px; bottom: 4px; left: 0; right: 4px;
 .notes p { margin: 0 0 12px; }
 .notes blockquote { margin: 0 0 16px; padding-left: 16px; border-left: 2px solid var(--accent); font-style: italic; white-space: pre-wrap; color: var(--ink); break-inside: avoid; }
 .colophon { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--hair); font-family: "Barlow Semi Condensed", sans-serif; font-size: 14px; letter-spacing: .04em; color: var(--muted); }
+
+/* try one: an example excerpt with a click-to-reveal answer */
+.try { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 20px 40px; align-items: start; }
+@media (max-width: 900px) { .try { grid-template-columns: 1fr; } }
+.trytext p { margin: 0 0 12px; color: var(--ink-2); }
+.trytext blockquote { margin: 0 0 18px; padding-left: 16px; border-left: 2px solid var(--accent); font-style: italic; }
+.reveal summary { list-style: none; cursor: pointer; display: inline-block; font-family: "Barlow Semi Condensed", sans-serif;
+  font-size: 15px; letter-spacing: .08em; text-transform: uppercase; border-bottom: 1px solid var(--ink); padding-bottom: 2px; }
+.reveal summary::-webkit-details-marker { display: none; }
+.reveal[open] summary { color: var(--muted); border-color: var(--hair); }
+.reveal p { font-size: 26px; font-style: italic; margin: 10px 0 0; color: var(--accent); }

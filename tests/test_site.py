@@ -24,7 +24,8 @@ def test_public_page_guard_accepts_clean_pages():
     "page,leak",
     [
         ('<img src="data:image/png;base64,AAAA">', "image"),
-        ("<details><summary>Opus</summary><p>Bar 3</p></details>", "responses"),
+        ('<div class="said"><p>Bar 3: the alto G natural</p></div>', "responses"),
+        ('<div class="answers"><details><summary>Opus</summary></details></div>', "responses"),
         ("<p>JANE DOE</p>", "arrangement"),
     ],
 )

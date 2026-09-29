@@ -147,6 +147,17 @@ td.brace span { position: absolute; top: 12px; bottom: 4px; left: 0; right: 4px;
 .notes p { margin: 0 0 12px; }
 .notes blockquote { margin: 0 0 16px; padding-left: 16px; border-left: 2px solid var(--accent); font-style: italic; white-space: pre-wrap; color: var(--ink); break-inside: avoid; }
 .colophon { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--hair); font-family: "Barlow Semi Condensed", sans-serif; font-size: 14px; letter-spacing: .04em; color: var(--muted); }
+
+/* try one: an example excerpt with a click-to-reveal answer */
+.try { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 20px 40px; align-items: start; }
+@media (max-width: 900px) { .try { grid-template-columns: 1fr; } }
+.trytext p { margin: 0 0 12px; color: var(--ink-2); }
+.trytext blockquote { margin: 0 0 18px; padding-left: 16px; border-left: 2px solid var(--accent); font-style: italic; }
+.reveal summary { list-style: none; cursor: pointer; display: inline-block; font-family: "Barlow Semi Condensed", sans-serif;
+  font-size: 15px; letter-spacing: .08em; text-transform: uppercase; border-bottom: 1px solid var(--ink); padding-bottom: 2px; }
+.reveal summary::-webkit-details-marker { display: none; }
+.reveal[open] summary { color: var(--muted); border-color: var(--hair); }
+.reveal p { font-size: 26px; font-style: italic; margin: 10px 0 0; color: var(--accent); }
 </style>
     </head>
     <body>
@@ -165,8 +176,19 @@ td.brace span { position: absolute; top: 12px; bottom: 4px; left: 0; right: 4px;
         Each of the 15 excerpts was asked twice, because the models often change their answer.</p>
       </div>
     </header>
-    <nav class="toc"><a href="#ranking">Ranking</a><a href="#score">Every answer</a><a href="#notes">Notes</a>
+    <nav class="toc"><a href="#try">Try one</a><a href="#ranking">Ranking</a><a href="#score">Every answer</a><a href="#notes">Notes</a>
     <span>15 excerpts · 7 models · September 29, 2026</span></nav>
+
+    <div class="sechead" id="try"><h2>Try one</h2><p>An example excerpt, not one of the 15</p></div>
+    <div class="try">
+      <div class="plate"><img src="sample.png" alt="Example excerpt: the opening bars of a choir arrangement"></div>
+      <div class="trytext">
+        <p>Every excerpt looks like this: part of a real score with one note changed. The models get the image and this
+        question, and nothing else:</p>
+        <blockquote>This is an image of part of a score. One note has been modified from the original. Which measure is it in? Answer with its bar number.</blockquote>
+        <details class="reveal"><summary>Show the answer</summary><p>Bar 2.</p></details>
+      </div>
+    </div>
 
     <div class="sechead" id="ranking"><h2>Ranking</h2><p>Average accuracy, with its 95% range</p></div>
     <div class="axis"><span></span><span></span><span class="scale"><span style="left:0%">0%</span><span style="left:25%">25%</span><span style="left:50%">50%</span><span style="left:75%">75%</span><span style="left:100%">100%</span></span><span class="pl">Excerpts 001 → 015</span></div>

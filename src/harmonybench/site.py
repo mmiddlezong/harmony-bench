@@ -16,6 +16,7 @@ excerpts numbered with boxed rehearsal marks, and editorial notes.
 from __future__ import annotations
 
 import base64
+import hashlib
 import html
 import re
 import statistics as st
@@ -26,12 +27,16 @@ from .config import load_registry
 from .dataset import Item, load_items
 from .judge import current_judgments, judge_fingerprint
 from .metrics import collect_outcomes, score_model
+from .paths import ROOT
 from .report import discover_models
 from .runner import predictions_path, read_records
 from .tasks import WRONG_NOTE
 
 e = html.escape
 STYLESHEET = Path(__file__).with_name("site.css")
+# An example excerpt for the "Try one" section. It is public on purpose and is not one of the test items.
+SAMPLE_IMAGE = ROOT / "site" / "sample.png"
+SAMPLE_ANSWER = 2
 
 
 def join_and(names: list[str]) -> str:
@@ -62,7 +67,7 @@ def _check_public(page: str, items: list[Item]) -> None:
     leaks = []
     if "data:image" in page:
         leaks.append("an embedded image")
-    if "<details" in page or 'class="said"' in page:
+    if 'class="said"' in page or 'class="answers"' in page:
         leaks.append("model responses")
     for it in items:
         src = it.meta.get("source")
@@ -250,6 +255,23 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
       <div class="answers"><div class="anskey"><span>Model</span><span>Run 1 · Run 2</span></div>{rows}</div>
     </article>"""
 
+    try_html = ""
+    if SAMPLE_IMAGE.exists():
+        sample = SAMPLE_IMAGE.read_bytes()
+        if hashlib.sha256(sample).hexdigest() in {it.image_sha256 for it in items}:
+            raise ValueError(f"{SAMPLE_IMAGE} is one of the test excerpts; the example must not be")
+        src = "sample.png" if public else "data:image/png;base64," + base64.b64encode(sample).decode()
+        try_html = f"""<div class="sechead" id="try"><h2>Try one</h2><p>An example excerpt, not one of the {n}</p></div>
+    <div class="try">
+      <div class="plate"><img src="{src}" alt="Example excerpt: the opening bars of a choir arrangement"></div>
+      <div class="trytext">
+        <p>Every excerpt looks like this: part of a real score with one note changed. The models get the image and this
+        question, and nothing else:</p>
+        <blockquote>{e(WRONG_NOTE.prompts["image"])}</blockquote>
+        <details class="reveal"><summary>Show the answer</summary><p>Bar {SAMPLE_ANSWER}.</p></details>
+      </div>
+    </div>"""
+
     excerpts_html = (
         ""
         if public
@@ -297,8 +319,10 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
         Each of the {n} excerpts was asked {TIMES}, because the models often change their answer.</p>
       </div>
     </header>
-    <nav class="toc"><a href="#ranking">Ranking</a><a href="#score">Every answer</a>{"" if public else '<a href="#excerpts">Excerpts</a>'}<a href="#notes">Notes</a>
+    <nav class="toc">{'<a href="#try">Try one</a>' if try_html else ""}<a href="#ranking">Ranking</a><a href="#score">Every answer</a>{"" if public else '<a href="#excerpts">Excerpts</a>'}<a href="#notes">Notes</a>
     <span>{n} excerpts · {N_MODELS} models · {date.today():%B %-d, %Y}</span></nav>
+
+    {try_html}
 
     <div class="sechead" id="ranking"><h2>Ranking</h2><p>Average accuracy, with its 95% range</p></div>
     <div class="axis"><span></span><span></span><span class="scale">{axis}</span><span class="pl">Excerpts 001 → {ex_ids[-1][-3:]}</span></div>
