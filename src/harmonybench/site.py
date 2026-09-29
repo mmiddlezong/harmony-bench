@@ -39,6 +39,12 @@ SAMPLE_IMAGE = ROOT / "site" / "sample.png"
 SAMPLE_ANSWER = 2
 
 
+def spell(k: int) -> str:
+    """Small numbers as words, the way they read in prose."""
+    words = "zero one two three four five six seven eight nine ten".split()
+    return words[k] if 0 <= k < len(words) else str(k)
+
+
 def join_and(names: list[str]) -> str:
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1] if names else "no model"
 
@@ -195,7 +201,7 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
         )
         rank_rows += f"""<li>
       <span class="rn">{i}</span>
-      <span class="who"><b>{e(d["name"])}</b><em>{e(d["lab"])} · {d["right"]} of {d["answers"]} right · ${d["cost"]:.2f} a pass</em></span>
+      <span class="who"><b>{e(d["name"])}</b><em>{e(d["lab"])}, {d["right"]} of {d["answers"]} right, ${d["cost"]:.2f} per run</em></span>
       <span class="track"><span class="ci" style="left:{100 * lo:.1f}%;width:{100 * (hi - lo):.1f}%"></span><span class="dot" style="left:{100 * d["acc"]:.1f}%"><span>{pct(d["acc"])}</span></span></span>
       <span class="pattern">{pattern}</span>
     </li>"""
@@ -252,7 +258,7 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
         <div><div class="src">{e(it.meta.get("source", ""))}</div>
         <div class="ans">The changed note is in bar <b>{it.label["measure"]}</b>. {k} of {tot} answers found it.</div></div></div>
       <div class="plate"><img src="data:image/png;base64,{img}" alt="Excerpt {it.item_id[-3:]}" loading="lazy"></div>
-      <div class="answers"><div class="anskey"><span>Model</span><span>Run 1 · Run 2</span></div>{rows}</div>
+      <div class="answers"><div class="anskey"><span>Model</span><span>1st and 2nd try</span></div>{rows}</div>
     </article>"""
 
     try_html = ""
@@ -261,12 +267,12 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
         if hashlib.sha256(sample).hexdigest() in {it.image_sha256 for it in items}:
             raise ValueError(f"{SAMPLE_IMAGE} is one of the test excerpts; the example must not be")
         src = "sample.png" if public else "data:image/png;base64," + base64.b64encode(sample).decode()
-        try_html = f"""<div class="sechead" id="try"><h2>Try one</h2><p>An example excerpt, not one of the {n}</p></div>
+        try_html = f"""<h2 id="try">Try one</h2>
     <div class="try">
       <div class="plate"><img src="{src}" alt="Example excerpt: the opening bars of a choir arrangement"></div>
       <div class="trytext">
-        <p>Every excerpt looks like this: part of a real score with one note changed. The models get the image and this
-        question, and nothing else:</p>
+        <p>This is an example, not one of the {n} in the test. Every excerpt looks like this: part of a real score with
+        one note changed. The models get the image and this question, and nothing else:</p>
         <blockquote>{e(WRONG_NOTE.prompts["image"])}</blockquote>
         <details class="reveal"><summary>Show the answer</summary><p>Bar {SAMPLE_ANSWER}.</p></details>
       </div>
@@ -275,14 +281,7 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
     excerpts_html = (
         ""
         if public
-        else '<div class="sechead" id="excerpts"><h2>The excerpts</h2><p>Open a model to read what it said</p></div>'
-        + item_secs
-    )
-    private_note = (
-        "<h3>The excerpts</h3><p>The excerpt images and the models' full answers are kept private, so the test items "
-        "can't end up in training data.</p>"
-        if public
-        else ""
+        else '<h2 id="excerpts">The excerpts</h2><p class="fine">Click a model to read what it said.</p>' + item_secs
     )
     judge_prompt = (
         WRONG_NOTE.judge_prompt.replace("{answer}", "N")
@@ -296,7 +295,7 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
     <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>HarmonyBench · Wrong note</title>
+    <title>Can AI find the wrong note? – HarmonyBench</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -307,31 +306,25 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
     <div class="page">
 
     <header class="title">
-      <div>
-        <div class="series">HarmonyBench · Wrong note</div>
-        <h1>Can AI find the <em>wrong note?</em></h1>
-        <p class="deck">Each excerpt is a passage from an unpublished arrangement with one note changed. The models see the
-        image and have to name the bar the changed note is in.</p>
-      </div>
-      <div class="figure">
-        <div class="n">{pct(models[best]["acc"])}</div>
-        <p><b>{join_and([e(models[m]["name"]) for m in tops])}</b>, the most accurate, finds the bar {in_words(models[best]["acc"])}.
-        Each of the {n} excerpts was asked {TIMES}, because the models often change their answer.</p>
-      </div>
+      <h1>Can AI find the wrong note?</h1>
+      <p class="deck">I took {n} passages from my own unpublished arrangements, changed one note in each, and asked
+      {spell(N_MODELS)} AI models which bar the changed note is in. The best of them, {join_and([e(models[m]["name"]) for m in tops])},
+      found it {in_words(models[best]["acc"])}. Most did a lot worse.</p>
+      <p class="deck">Each excerpt was asked {TIMES}, because the models often give a different answer when you ask again.</p>
     </header>
-    <nav class="toc">{'<a href="#try">Try one</a>' if try_html else ""}<a href="#ranking">Ranking</a><a href="#score">Every answer</a>{"" if public else '<a href="#excerpts">Excerpts</a>'}<a href="#notes">Notes</a>
-    <span>{n} excerpts · {N_MODELS} models · {date.today():%B %-d, %Y}</span></nav>
 
     {try_html}
 
-    <div class="sechead" id="ranking"><h2>Ranking</h2><p>Average accuracy, with its 95% range</p></div>
-    <div class="axis"><span></span><span></span><span class="scale">{axis}</span><span class="pl">Excerpts 001 → {ex_ids[-1][-3:]}</span></div>
+    <h2 id="ranking">Ranking</h2>
+    <div class="axis"><span></span><span></span><span class="scale">{axis}</span><span></span></div>
     <ol class="ranking">{rank_rows}</ol>
-    <p class="fine">An excerpt answered right once and wrong once counts half. Where two models' ranges overlap a lot, the gap
-    between them may be luck. The squares show every excerpt in order: green when both runs were right, gold when the model
-    was right once, hollow when it was wrong both times.{"" if public else " Click one to jump to the excerpt."}</p>
+    <p class="fine">The dot is each model's accuracy and the grey bar around it is a 95% confidence interval. Where two bars
+    overlap a lot, the difference between those models could be luck. An excerpt answered right once and wrong once counts
+    half. The squares are the {n} excerpts in order: green if both answers were right, gold if one was, hollow if neither was.{"" if public else " Click one to jump to the excerpt."}</p>
 
-    <div class="sechead" id="score"><h2>Every answer</h2><p>Set out like a score: one staff per model, one bar per excerpt</p></div>
+    <h2 id="score">Every answer</h2>
+    <p class="fine">Laid out like a score, with a staff for each model and a bar for each excerpt. The top line is the bar
+    where the note was changed; each cell shows the bar a model named on its first and second try.</p>
     <div class="scroll"><table class="system">
       <thead><tr><th></th><th></th>{bar_head}</tr></thead>
       <tbody>
@@ -340,11 +333,11 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
         <tr class="tot"><td></td><th class="rowlab">Found</th>{tot_row}</tr>
       </tbody>
     </table></div>
-    <div class="legend"><span><i class="sw ok"></i>right both runs</span><span><i class="sw mix"></i>right on one run</span><span><i class="sw no"></i>wrong both runs</span><span>Each cell reads run 1 / run 2.</span></div>
+    <div class="legend"><span><i class="sw ok"></i>Right both times</span><span><i class="sw mix"></i>Right once</span><span><i class="sw no"></i>Wrong both times</span></div>
 
     {excerpts_html}
 
-    <div class="sechead" id="notes"><h2>Notes</h2></div>
+    <h2 id="notes">Notes</h2>
     <div class="notes">
       <h3>The question</h3>
       <p>Each model got the excerpt image and this text, with no system prompt and no tools:</p>
@@ -357,9 +350,8 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
       <h3>The numbers</h3>
       <p>Accuracy averages each excerpt's runs. The 95% range comes from resampling the excerpts. Cost is one pass over all
       {n} excerpts at list prices. "Found" counts the answers, out of {N_MODELS * SAMPLES}, that named the right bar.</p>
-      {private_note}
     </div>
-    <div class="colophon">HarmonyBench · generated {date.today():%B %-d, %Y} · {"the excerpts are unpublished test items and are not shown here" if public else "private: the excerpts are unpublished test items"}</div>
+    <p class="colophon">HarmonyBench, updated {date.today():%B %-d, %Y}. {"The test excerpts are unpublished, so they aren't shown here." if public else "Private copy: includes the unpublished test excerpts."}</p>
     </div>
     </body>
     </html>"""
