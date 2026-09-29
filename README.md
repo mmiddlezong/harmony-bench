@@ -2,6 +2,8 @@
 
 How well can AI models read harmony from sheet music?
 
+**[Results: can AI find the wrong note? →](https://mmiddlezong.github.io/harmony-bench/)**
+
 The first test is the simplest one: a single major or minor chord in root position, written
 for four voices (soprano, alto, tenor, bass) on a grand staff. The model has to name it.
 
