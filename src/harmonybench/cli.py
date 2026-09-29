@@ -576,6 +576,27 @@ def disagreements(
 
 
 @app.command()
+def site(
+    subset: SubsetOpt = "wrong_note",
+    private: Annotated[
+        bool, typer.Option(help="Also build the full page with every excerpt and answer (kept local, gitignored).")
+    ] = False,
+) -> None:
+    """Build the results website: site/index.html (public, no excerpts) for GitHub Pages."""
+    from .report import results_base
+    from .site import render
+
+    out = ROOT / "site" / "index.html"
+    out.parent.mkdir(exist_ok=True)
+    out.write_text(render(subset, public=True))
+    console.print(f"[green]✓[/] wrote {out.relative_to(ROOT)} (public: no excerpt images or responses)")
+    if private:
+        full = results_base(subset) / "report.html"
+        full.write_text(render(subset, public=False))
+        console.print(f"[green]✓[/] wrote {full.relative_to(ROOT)} (private: includes the excerpts)")
+
+
+@app.command()
 def prompt(subset: SubsetOpt = DEFAULT_SUBSET) -> None:
     """Print the prompt templates for a subset ({fields} are filled in per item)."""
     task = get_task(subset)
