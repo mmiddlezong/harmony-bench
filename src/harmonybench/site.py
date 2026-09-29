@@ -39,16 +39,6 @@ SAMPLE_IMAGE = ROOT / "site" / "sample.png"
 SAMPLE_ANSWER = 2
 
 
-def spell(k: int) -> str:
-    """Small numbers as words, the way they read in prose."""
-    words = "zero one two three four five six seven eight nine ten".split()
-    return words[k] if 0 <= k < len(words) else str(k)
-
-
-def join_and(names: list[str]) -> str:
-    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1] if names else "no model"
-
-
 def first_line(text: str) -> str:
     return next((ln.replace("**", "").strip() for ln in text.splitlines() if ln.strip()), "")
 
@@ -166,23 +156,7 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
         """Model responses without markdown noise (bold markers, heading hashes)."""
         return re.sub(r"(?m)^#+\s*", "", text.replace("**", "")).strip()
 
-    def in_words(x: float) -> str:
-        for frac, words in [
-            (1, "every time"),
-            (0.75, "three times in four"),
-            (2 / 3, "two times in three"),
-            (0.6, "three times in five"),
-            (0.5, "half the time"),
-            (1 / 3, "one time in three"),
-            (0.25, "one time in four"),
-        ]:
-            if x >= frac - 0.02:
-                return words
-        return "almost never"
-
     MARK = {"ok": "✓", "no": "✗"}
-    best = order[0]
-    tops = [m for m in order if abs(models[m]["acc"] - models[best]["acc"]) < 1e-9]
     ex_ids = [it.item_id for it in items]
 
     def bars_of(row) -> str:
@@ -307,10 +281,8 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
 
     <header class="title">
       <h1>Can AI find the wrong note?</h1>
-      <p class="deck">I took {n} passages from my own unpublished arrangements, changed one note in each, and asked
-      {spell(N_MODELS)} AI models which bar the changed note is in. The best of them, {join_and([e(models[m]["name"]) for m in tops])},
-      found it {in_words(models[best]["acc"])}. Most did a lot worse.</p>
-      <p class="deck">Each excerpt was asked {TIMES}, because the models often give a different answer when you ask again.</p>
+      <p class="deck">I took {n} excerpts from various musical arrangements and compositions, modified one note, and asked
+      frontier AI models which measure the changed note is in.</p>
     </header>
 
     {try_html}
