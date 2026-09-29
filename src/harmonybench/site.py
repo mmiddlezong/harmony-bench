@@ -175,7 +175,7 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
         )
         rank_rows += f"""<li>
       <span class="rn">{i}</span>
-      <span class="who"><b>{e(d["name"])}</b><em>{e(d["lab"])}, {d["right"]} of {d["answers"]} right, ${d["cost"]:.2f} per run</em></span>
+      <span class="who"><b>{e(d["name"])}</b><em>{e(d["lab"])}</em></span>
       <span class="track"><span class="ci" style="left:{100 * lo:.1f}%;width:{100 * (hi - lo):.1f}%"></span><span class="dot" style="left:{100 * d["acc"]:.1f}%"><span>{pct(d["acc"])}</span></span></span>
       <span class="pattern">{pattern}</span>
     </li>"""
@@ -320,8 +320,8 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
       or incorrect:</p>
       <blockquote>{e(judge_prompt)}</blockquote>
       <h3>The numbers</h3>
-      <p>Accuracy averages each excerpt's runs. The 95% range comes from resampling the excerpts. Cost is one pass over all
-      {n} excerpts at list prices. "Found" counts the answers, out of {N_MODELS * SAMPLES}, that named the right bar.</p>
+      <p>Accuracy averages each excerpt's runs. The 95% range comes from resampling the excerpts. "Found" counts the
+      answers, out of {N_MODELS * SAMPLES}, that named the right bar.</p>
     </div>
     <p class="colophon">HarmonyBench, updated {date.today():%B %-d, %Y}. {"The test excerpts are unpublished, so they aren't shown here." if public else "Private copy: includes the unpublished test excerpts."}</p>
     </div>
