@@ -317,7 +317,7 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
       or incorrect:</p>
       <blockquote>{e(judge_prompt)}</blockquote>
     </div>
-    <p class="colophon">HarmonyBench, updated {date.today():%B %-d, %Y}. {"The test excerpts are unpublished, so they aren't shown here." if public else "Private copy: includes the unpublished test excerpts."}</p>
+    <p class="colophon">HarmonyBench, updated {date.today():%B %-d, %Y}. {"" if public else "Private copy: includes the unpublished test excerpts."}</p>
     </div>
     </body>
     </html>"""
