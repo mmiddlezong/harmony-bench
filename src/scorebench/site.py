@@ -247,7 +247,7 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
 </head>
 <body>
 
-<h1>Can AI find the wrong note?</h1>
+<h1>Can AI find the <mark>wrong note</mark>?</h1>
 <p>I took {n} excerpts from various musical arrangements and compositions, modified one note, and asked
 frontier AI models which measure the changed note is in.</p>
 
