@@ -40,7 +40,6 @@ h2 { font-weight: 500; font-size: 32px; letter-spacing: -0.01em; margin: 72px 0 
 .rn { font-style: italic; font-size: 30px; color: var(--muted); line-height: 1; }
 .ranking li:first-child .rn { color: var(--accent); }
 .who b { display: block; font-weight: 600; font-size: 19px; }
-.who em { display: block; font-style: normal; font-family: "Barlow Semi Condensed", sans-serif; font-size: 14px; color: var(--muted); }
 .track { position: relative; height: 34px;
   background:
     linear-gradient(var(--hair), var(--hair)) 0 50% / 100% 1px no-repeat,

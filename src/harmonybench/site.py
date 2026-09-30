@@ -175,7 +175,7 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
         )
         rank_rows += f"""<li>
       <span class="rn">{i}</span>
-      <span class="who"><b>{e(d["name"])}</b><em>{e(d["lab"])}</em></span>
+      <span class="who"><b>{e(d["name"])}</b></span>
       <span class="track"><span class="ci" style="left:{100 * lo:.1f}%;width:{100 * (hi - lo):.1f}%"></span><span class="dot" style="left:{100 * d["acc"]:.1f}%"><span>{pct(d["acc"])}</span></span></span>
       <span class="pattern">{pattern}</span>
     </li>"""
