@@ -244,8 +244,7 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
     <div class="try">
       <div class="plate"><img src="{src}" alt="Example excerpt: the opening bars of a choir arrangement"></div>
       <div class="trytext">
-        <p>This is an example, not one of the {n} in the test. Every excerpt looks like this: part of a real score with
-        one note changed. The models get the image and this question, and nothing else:</p>
+        <p>This is a sample and not included in the benchmark. Here's the prompt:</p>
         <blockquote>{e(WRONG_NOTE.prompts["image"])}</blockquote>
         <details class="reveal"><summary>Show the answer</summary><p>Bar {SAMPLE_ANSWER}.</p></details>
       </div>
