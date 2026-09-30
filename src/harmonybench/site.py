@@ -37,6 +37,9 @@ STYLESHEET = Path(__file__).with_name("site.css")
 # An example excerpt for the "Try one" section. It is public on purpose and is not one of the test items.
 SAMPLE_IMAGE = ROOT / "site" / "sample.png"
 SAMPLE_ANSWER = 2
+AUTHOR = "Michael Middlezong"
+AUTHOR_URL = "https://github.com/mmiddlezong"
+REPO_URL = "https://github.com/mmiddlezong/harmony-bench"
 
 
 def first_line(text: str) -> str:
@@ -316,7 +319,8 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
       or incorrect:</p>
       <blockquote>{e(judge_prompt)}</blockquote>
     </div>
-    <p class="colophon">HarmonyBench, updated {date.today():%B %-d, %Y}. {"" if public else "Private copy: includes the unpublished test excerpts."}</p>
+    <p class="colophon">Made by <a href="{AUTHOR_URL}">{AUTHOR}</a>. The code is <a href="{REPO_URL}">on GitHub</a>.
+    Last updated {date.today():%B %-d, %Y}.{"" if public else " This private copy includes the test excerpts."}</p>
     </div>
     </body>
     </html>"""
