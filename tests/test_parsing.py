@@ -1,7 +1,7 @@
 import pytest
 
-from harmonybench.chords import all_triads, root_position_voicings
-from harmonybench.parsing import grade, parse_chord
+from scorebench.chords import all_triads, root_position_voicings
+from scorebench.parsing import grade, parse_chord
 
 
 @pytest.mark.parametrize(

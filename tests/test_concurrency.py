@@ -2,8 +2,8 @@ import asyncio
 
 import pytest
 
-from harmonybench import concurrency
-from harmonybench.concurrency import AdaptiveLimiter, is_rate_limited
+from scorebench import concurrency
+from scorebench.concurrency import AdaptiveLimiter, is_rate_limited
 
 
 class HTTPError(Exception):

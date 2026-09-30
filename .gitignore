@@ -12,7 +12,7 @@ build/
 .env
 
 # Generated benchmark items: the scored test set stays private
-# (rebuild with `harmonybench build`)
+# (rebuild with `scorebench build`)
 data/
 
 # Results on the real benchmark subsets stay local too (they pair item ids with answers)

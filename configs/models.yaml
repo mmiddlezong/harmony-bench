@@ -1,4 +1,4 @@
-# HarmonyBench model registry (models and prices copied from CalorieBench, 2026-09-25)
+# ScoreBench model registry (models and prices copied from CalorieBench, 2026-09-25)
 # ---------------------------------------------------------------------------
 # Every entry is one "system under test": a model plus its request settings.
 # To benchmark a different setting (e.g. higher reasoning effort), add a new entry
@@ -13,10 +13,10 @@
 #   musicxml_tokens  the MusicXML file (~2.7 KB) in the text-only condition
 #   reasoning_tokens expected hidden reasoning tokens (billed as output). Sources:
 #                    usage measured on CalorieBench (meal photos, a different task), else
-#                    Artificial Analysis MMMU-Pro token counts, else a conservative guess. `harmonybench estimate` shows a
+#                    Artificial Analysis MMMU-Pro token counts, else a conservative guess. `scorebench estimate` shows a
 #                    0.5x-2.5x range around it.
 # params:   provider-specific request settings - see the docstring of each provider in
-#           src/harmonybench/providers/. Sampling parameters (temperature etc.) are left
+#           src/scorebench/providers/. Sampling parameters (temperature etc.) are left
 #           at provider defaults; several of these models reject them.
 #
 # Reasoning policy: every model runs at "high" reasoning effort (each vendor's own
@@ -40,7 +40,7 @@ defaults:
     musicxml_tokens: 1000  # one MusicXML file (~2.7 KB)
     output_tokens: 250     # free-text answer (a guess until the first run)
 
-# The judge grades every free-text answer against the answer key (see src/harmonybench/judge.py).
+# The judge grades every free-text answer against the answer key (see src/scorebench/judge.py).
 # `model` is an id from the list below; `params` replaces that model's request params.
 judge:
   model: gpt-6-luna

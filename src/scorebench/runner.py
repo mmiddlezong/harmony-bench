@@ -189,7 +189,7 @@ async def run_model(
             "display_name": spec.display_name,
             "lab": spec.lab,
             "pricing": spec.pricing.model_dump(),
-            "harmonybench_version": __version__,
+            "scorebench_version": __version__,
             "git_commit": _git_commit(),
             "updated_at": _now(),
             "run_items_hash": items_hash({r["item_id"] for r in existing}, subset),

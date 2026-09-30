@@ -1,9 +1,9 @@
 import pytest
 
-from harmonybench.config import load_registry
-from harmonybench.cost import estimate_cost, usage_cost
-from harmonybench.providers import Request, make_provider
-from harmonybench.providers.base import Usage
+from scorebench.config import load_registry
+from scorebench.cost import estimate_cost, usage_cost
+from scorebench.providers import Request, make_provider
+from scorebench.providers.base import Usage
 
 KNOWN_PROVIDERS = {"anthropic", "openai", "google", "xai", "openrouter", "openai_chat"}
 

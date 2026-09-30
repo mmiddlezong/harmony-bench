@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from harmonybench.config import Estimate, ModelSpec, Pricing
-from harmonybench.dataset import Item
+from scorebench.config import Estimate, ModelSpec, Pricing
+from scorebench.dataset import Item
 
 JUDGMENT = {"final_answer": "F# minor", "verdict": "correct", "explanation": "Matches the key."}
 
@@ -24,7 +24,7 @@ def make_spec(**overrides) -> ModelSpec:
         model="test-model-api-id",
         pricing=Pricing(input=2.0, output=10.0, cached_input=0.2),
         estimate=Estimate(image_tokens=400, reasoning_tokens=1000),
-        api_key_env=["HARMONYBENCH_TEST_KEY"],
+        api_key_env=["SCOREBENCH_TEST_KEY"],
         timeout_s=10,
     )
     base.update(overrides)
@@ -57,4 +57,4 @@ def item_factory():
 
 @pytest.fixture(autouse=True)
 def _test_key(monkeypatch):
-    monkeypatch.setenv("HARMONYBENCH_TEST_KEY", "sk-test")
+    monkeypatch.setenv("SCOREBENCH_TEST_KEY", "sk-test")

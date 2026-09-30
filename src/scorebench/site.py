@@ -1,4 +1,4 @@
-"""The results website for the wrong_note subset: `harmonybench site`.
+"""The results website for the wrong_note subset: `scorebench site`.
 
 The page is built from private data (the excerpts and the stored answers), so it is built
 locally and the output committed, like CalorieBench's site. Two versions:
@@ -39,7 +39,7 @@ SAMPLE_IMAGE = ROOT / "site" / "sample.png"
 SAMPLE_ANSWER = 2
 AUTHOR = "Michael Middlezong"
 AUTHOR_URL = "https://github.com/mmiddlezong"
-REPO_URL = "https://github.com/mmiddlezong/harmony-bench"
+REPO_URL = "https://github.com/mmiddlezong/score-bench"
 FAVICON = ROOT / "site" / "favicon.svg"
 
 
@@ -277,7 +277,7 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
     <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>HarmonyBench</title>
+    <title>ScoreBench</title>
     <link rel="icon" type="image/svg+xml" href="{favicon}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

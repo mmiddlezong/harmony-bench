@@ -1,7 +1,7 @@
 [project]
-name = "harmonybench"
+name = "scorebench"
 version = "0.1.0"
-description = "HarmonyBench: benchmarking frontier AI models at reading harmony from music score images"
+description = "ScoreBench: can frontier AI models read sheet music?"
 readme = "README.md"
 authors = [
     { name = "Michael Middlezong", email = "mmiddlezong@gmail.com" }
@@ -35,7 +35,7 @@ dev = [
 ]
 
 [project.scripts]
-harmonybench = "harmonybench.cli:app"
+scorebench = "scorebench.cli:app"
 
 [tool.ruff]
 line-length = 120
@@ -47,7 +47,7 @@ ignore = ["B008"]
 
 [tool.ruff.lint.per-file-ignores]
 # the HTML template in site.py has long lines that read better unwrapped
-"src/harmonybench/site.py" = ["E501"]
+"src/scorebench/site.py" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

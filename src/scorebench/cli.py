@@ -1,4 +1,4 @@
-"""Command-line interface: `uv run harmonybench --help`."""
+"""Command-line interface: `uv run scorebench --help`."""
 
 from __future__ import annotations
 
@@ -22,13 +22,13 @@ from .tasks import TASKS, get_task
 app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
-    help="HarmonyBench: benchmark AI models at reading harmony from music score images.",
+    help="ScoreBench: can frontier AI models read sheet music?",
 )
 console = Console()
-SEED_ENV = "HARMONYBENCH_SEED"
+SEED_ENV = "SCOREBENCH_SEED"
 
 ModelsArg = Annotated[
-    list[str] | None, typer.Argument(help="Model ids and/or group names (see `harmonybench models`). Default: all.")
+    list[str] | None, typer.Argument(help="Model ids and/or group names (see `scorebench models`). Default: all.")
 ]
 SubsetOpt = Annotated[str, typer.Option("--subset", "-s", help=f"Which subset under data/ ({', '.join(TASKS)}).")]
 LimitOpt = Annotated[
@@ -225,7 +225,7 @@ def _report_judging(summaries) -> bool:
         if s.statuses.get("api_error") or s.statuses.get("parse_error"):
             ok = False
     if not ok:
-        console.print("[yellow]Some judgments failed; run `harmonybench judge` to retry them.[/]")
+        console.print("[yellow]Some judgments failed; run `scorebench judge` to retry them.[/]")
     return ok
 
 
@@ -378,7 +378,7 @@ def run(
             console.print("[yellow]  some requests hit API errors; re-run the same command to retry them.[/]")
     if judged:
         any_failed |= not _report_judging(judged)
-    console.print(f"\nNext: [bold]uv run harmonybench score --subset {subset}[/]")
+    console.print(f"\nNext: [bold]uv run scorebench score --subset {subset}[/]")
     if any_failed:
         raise typer.Exit(2)
 
@@ -412,7 +412,7 @@ def _scores(subset: str, model_names):
         available = [m for m in available if m in wanted]
     if not available:
         console.print(
-            f"[yellow]No results under results/{subset}/{get_task(subset).version}/. Run `harmonybench run` first.[/]"
+            f"[yellow]No results under results/{subset}/{get_task(subset).version}/. Run `scorebench run` first.[/]"
         )
         raise typer.Exit(1)
     items = load_items(subset)
@@ -431,7 +431,7 @@ def score(
     reg, items, scores = _scores(subset, model_names)
     task = get_task(subset)
     cols = _columns(task, scores)
-    table = Table(title=f"HarmonyBench {subset} (prompt {task.version}) — ranked by {task.conditions[0]} accuracy")
+    table = Table(title=f"ScoreBench {subset} (prompt {task.version}) — ranked by {task.conditions[0]} accuracy")
     table.add_column("model")
     for header, _ in cols:
         table.add_column(header, justify="right")
@@ -442,10 +442,10 @@ def score(
             table.add_row(s.model_id, *(f(s) for _, f in cols))
     console.print(table)
     if unjudged:
-        console.print(f"[yellow]{unjudged} answers are not judged yet and are left out; run `harmonybench judge`.[/]")
+        console.print(f"[yellow]{unjudged} answers are not judged yet and are left out; run `scorebench judge`.[/]")
     if any(s.judge_disagreements for s in scores):
         console.print(
-            "[dim]flags: judge verdicts the rule-based parser disagrees with; see `harmonybench disagreements`.[/]"
+            "[dim]flags: judge verdicts the rule-based parser disagrees with; see `scorebench disagreements`.[/]"
         )
     if write:
         from .report import update_readme, write_leaderboard

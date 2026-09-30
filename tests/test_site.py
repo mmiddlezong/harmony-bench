@@ -1,7 +1,7 @@
 import pytest
 
-from harmonybench.dataset import Item
-from harmonybench.site import _check_public
+from scorebench.dataset import Item
+from scorebench.site import _check_public
 
 
 def item(source="JANE DOE") -> Item:

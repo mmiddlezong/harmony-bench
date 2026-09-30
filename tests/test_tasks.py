@@ -1,9 +1,9 @@
 import pytest
 
-from harmonybench.dataset import Item, load_items
-from harmonybench.judge import response_hash
-from harmonybench.metrics import score_model
-from harmonybench.tasks import TASKS, TRIADS_ROOT, WRONG_NOTE, get_task
+from scorebench.dataset import Item, load_items
+from scorebench.judge import response_hash
+from scorebench.metrics import score_model
+from scorebench.tasks import TASKS, TRIADS_ROOT, WRONG_NOTE, get_task
 
 
 def wrong_note_item(index=0, measure=29) -> Item:

@@ -15,8 +15,8 @@ import re
 import pytest
 from werkzeug import Response
 
-from harmonybench.providers import ProviderError, Request, make_provider
-from harmonybench.tasks import TRIADS_ROOT
+from scorebench.providers import ProviderError, Request, make_provider
+from scorebench.tasks import TRIADS_ROOT
 
 IMAGE = b"\x89PNG\r\n\x1a\nfake-image-bytes"
 PROMPT = "What chord is this?"

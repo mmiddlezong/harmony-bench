@@ -2,9 +2,9 @@ import json
 
 import pytest
 
-from harmonybench import concurrency, runner
-from harmonybench.dataset import Item
-from harmonybench.providers.base import Provider, ProviderError, ProviderResult, Usage
+from scorebench import concurrency, runner
+from scorebench.dataset import Item
+from scorebench.providers.base import Provider, ProviderError, ProviderResult, Usage
 
 
 class FakeProvider(Provider):
@@ -151,7 +151,7 @@ def test_read_records_tolerates_torn_line(tmp_path):
 
 
 def test_items_hash_skips_removed_items(tmp_path, monkeypatch):
-    from harmonybench import dataset
+    from scorebench import dataset
 
     manifest = tmp_path / "labels.jsonl"
     manifest.write_text('{"id": "a", "label": 1}\n{"id": "b", "label": 2}\n')
@@ -162,7 +162,7 @@ def test_items_hash_skips_removed_items(tmp_path, monkeypatch):
 
 
 def test_items_hash_ignores_notes(tmp_path, monkeypatch):
-    from harmonybench import dataset
+    from scorebench import dataset
 
     manifest = tmp_path / "labels.jsonl"
     monkeypatch.setattr(dataset, "items_path", lambda subset: manifest)

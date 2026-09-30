@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 def _find_root() -> Path:
-    env = os.environ.get("HARMONYBENCH_ROOT")
+    env = os.environ.get("SCOREBENCH_ROOT")
     if env:
         return Path(env).resolve()
     here = Path(__file__).resolve()

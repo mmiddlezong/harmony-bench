@@ -8,7 +8,7 @@ and re-run without asking the benchmarked models again.
 
 Cross-check: the judge's extracted answer is also graded by the task's deterministic
 parser. When the two verdicts disagree the judgment is flagged
-(`agrees_with_parser: false`) for a human to look at; `harmonybench disagreements` lists them.
+(`agrees_with_parser: false`) for a human to look at; `scorebench disagreements` lists them.
 """
 
 from __future__ import annotations

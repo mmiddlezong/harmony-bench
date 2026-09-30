@@ -19,7 +19,7 @@ Conventions
   counts as wrong. This keeps denominators equal across models.
 * Infrastructure errors (status api_error) and answers the judge has not graded yet are
   NOT counted against the model; those items are simply missing, and `coverage` shows how
-  complete the run is. Re-run `harmonybench run` / `harmonybench judge` to fill them.
+  complete the run is. Re-run `scorebench run` / `scorebench judge` to fill them.
 """
 
 from __future__ import annotations

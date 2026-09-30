@@ -99,7 +99,7 @@ def leaderboard_markdown(scores: list[ModelScore], registry: Registry | None, su
     cols = _columns(task, scores)
     ranked = [s for s in scores if s.primary]
     lines = [
-        f"# HarmonyBench leaderboard: {subset} (prompt {task.version})",
+        f"# ScoreBench leaderboard: {subset} (prompt {task.version})",
         "",
         f"_Generated {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}. Ranked by "
         f"{CONDITION_NAMES.get(task.conditions[0], task.conditions[0]).lower()} accuracy. 95% CIs from 10,000 "
@@ -123,7 +123,7 @@ def leaderboard_markdown(scores: list[ModelScore], registry: Registry | None, su
         )
         + "*Fail*: empty answers, refusals, truncations and answers that name nothing (all scored wrong). "
         "*Judge flags*: judge verdicts that disagree with the rule-based parser, worth checking by hand "
-        "(`harmonybench disagreements`). *Mixed*: items right on some runs and wrong on others (only with "
+        "(`scorebench disagreements`). *Mixed*: items right on some runs and wrong on others (only with "
         "`--repeats`). *Cost*: API spend to run every item once in every condition, at "
         "list prices. ⚠ = incomplete run.",
         "",

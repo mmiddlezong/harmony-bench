@@ -108,7 +108,7 @@ class Registry(BaseModel):
         for m in self.models:
             if m.id == model_id:
                 return m
-        raise KeyError(f"Unknown model id {model_id!r}. Run `harmonybench models` to list them.")
+        raise KeyError(f"Unknown model id {model_id!r}. Run `scorebench models` to list them.")
 
     def groups(self) -> dict[str, list[str]]:
         out: dict[str, list[str]] = {}

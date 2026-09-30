@@ -1,9 +1,9 @@
-# HarmonyBench
+# ScoreBench
 
 Can AI find the wrong note? I took 15 excerpts from various musical arrangements and compositions, modified one
 note, and asked frontier AI models which measure the changed note is in.
 
-Results: https://mmiddlezong.github.io/harmony-bench/
+Results: https://mmiddlezong.github.io/score-bench/
 
 ## How it works
 
@@ -24,12 +24,12 @@ You need [uv](https://docs.astral.sh/uv/), API keys in `.env` (see `.env.example
 
 ```bash
 uv sync
-uv run harmonybench run gpt-6-sol claude-opus-5-5 -s wrong_note --repeats 2
-uv run harmonybench score -s wrong_note
-uv run harmonybench site
+uv run scorebench run gpt-6-sol claude-opus-5-5 -s wrong_note --repeats 2
+uv run scorebench score -s wrong_note
+uv run scorebench site
 ```
 
-`harmonybench models` lists the configured models. To add one, add it to `configs/models.yaml`.
+`scorebench models` lists the configured models. To add one, add it to `configs/models.yaml`.
 
-There's also a generated warm-up set of root-position triads (`harmonybench build`, subset `triads_root`), which I
+There's also a generated warm-up set of root-position triads (`scorebench build`, subset `triads_root`), which I
 used to test the pipeline.

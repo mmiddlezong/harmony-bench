@@ -5,11 +5,11 @@ import json
 
 import pytest
 
-from harmonybench import judge, pipeline, runner
-from harmonybench.dataset import Item
-from harmonybench.metrics import collect_outcomes, compare_models, score_model
-from harmonybench.providers.base import Provider, ProviderResult, Usage
-from harmonybench.tasks import TRIADS_ROOT
+from scorebench import judge, pipeline, runner
+from scorebench.dataset import Item
+from scorebench.metrics import collect_outcomes, compare_models, score_model
+from scorebench.providers.base import Provider, ProviderResult, Usage
+from scorebench.tasks import TRIADS_ROOT
 
 # Image-condition answers per item (every item's key is C major); MusicXML answers are all right.
 ANSWERS = {
@@ -167,7 +167,7 @@ async def test_pipeline_runs_models_together_and_judges_as_answers_arrive(tmp_pa
     for mid in ("model-a", "model-b"):
         assert runs[mid].attempted == 12
         assert judged[mid].attempted == 11 and judged[mid].statuses == {"ok": 11}
-    # Nothing left over for `harmonybench judge`.
+    # Nothing left over for `scorebench judge`.
     assert await judge.judge_model(jspec, "model-b", items, "triads_root", results_dir=tmp_path) == judge.JudgeSummary(
         model_id="model-b"
     )
