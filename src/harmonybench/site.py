@@ -40,6 +40,7 @@ SAMPLE_ANSWER = 2
 AUTHOR = "Michael Middlezong"
 AUTHOR_URL = "https://github.com/mmiddlezong"
 REPO_URL = "https://github.com/mmiddlezong/harmony-bench"
+FAVICON = ROOT / "site" / "favicon.svg"
 
 
 def first_line(text: str) -> str:
@@ -237,6 +238,12 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
       <div class="answers"><div class="anskey"><span>Model</span><span>1st and 2nd try</span></div>{rows}</div>
     </article>"""
 
+    # the tab icon is a file next to the public page; the private copy lives elsewhere, so it carries it inline
+    favicon = (
+        "favicon.svg"
+        if public or not FAVICON.exists()
+        else "data:image/svg+xml;base64," + base64.b64encode(FAVICON.read_bytes()).decode()
+    )
     try_html = ""
     if SAMPLE_IMAGE.exists():
         sample = SAMPLE_IMAGE.read_bytes()
@@ -270,7 +277,8 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
     <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Can AI find the wrong note? – HarmonyBench</title>
+    <title>HarmonyBench</title>
+    <link rel="icon" type="image/svg+xml" href="{favicon}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
