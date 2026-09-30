@@ -290,9 +290,9 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
     <h2 id="ranking">Ranking</h2>
     <div class="axis"><span></span><span></span><span class="scale">{axis}</span><span></span></div>
     <ol class="ranking">{rank_rows}</ol>
-    <p class="fine">The dot is each model's accuracy and the grey bar around it is a 95% confidence interval. Where two bars
-    overlap a lot, the difference between those models could be luck. An excerpt answered right once and wrong once counts
-    half. The squares are the {n} excerpts in order: green if both answers were right, gold if one was, hollow if neither was.{"" if public else " Click one to jump to the excerpt."}</p>
+    <p class="fine">Gray bars around the accuracy are 95% confidence intervals. Each excerpt was given twice to each model
+    separately to reduce variance. The squares are the {n} excerpts in order: green if both answers were right, gold if one
+    was, hollow if neither was.{"" if public else " Click one to jump to the excerpt."}</p>
 
     <h2 id="score">Every answer</h2>
     <p class="fine">Laid out like a score, with a staff for each model and a bar for each excerpt. The top line is the bar
