@@ -259,8 +259,6 @@ frontier AI models which measure the changed note is in.</p>
 <p>Each excerpt was given {TIMES} to each model separately to reduce variance.</p>
 
 <h2 id="answers">Table of answers</h2>
-<p>The bar each model named on its first and second try. Green means right both times, yellow right once, red
-wrong both times.</p>
 <div class="wide"><table class="grid">
 <tr><th></th>{head_cells}</tr>
 <tr><th>Correct bar</th>{key_cells}</tr>
@@ -272,7 +270,7 @@ wrong both times.</p>
 <p>Each model got the excerpt image and {"the prompt above" if try_html else "this prompt: " + e(WRONG_NOTE.prompts["image"])},
 with no system prompt and no tools. All models ran at their
 <code>high</code> reasoning setting. Each excerpt was asked {TIMES}, in separate requests.</p>
-<p>GPT-6 Luna read each model's full response next to the right bar number, without the image, and replied correct
+<p>For grading, GPT-6 Luna read each model's full response next to the right bar number, without the image, and replied correct
 or incorrect:</p>
 <blockquote class="pre">{e(judge_prompt)}</blockquote>
 
