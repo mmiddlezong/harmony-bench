@@ -300,7 +300,7 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
       <tbody>
         <tr class="key"><td></td><th class="rowlab">Answer</th>{key_row}</tr>
         {sys_rows}
-        <tr class="tot"><td></td><th class="rowlab">Found</th>{tot_row}</tr>
+        <tr class="tot"><td></td><th class="rowlab"># correct</th>{tot_row}</tr>
       </tbody>
     </table></div>
     <div class="legend"><span><i class="sw ok"></i>Right both times</span><span><i class="sw mix"></i>Right once</span><span><i class="sw no"></i>Wrong both times</span></div>
@@ -318,7 +318,7 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
       or incorrect:</p>
       <blockquote>{e(judge_prompt)}</blockquote>
       <h3>The numbers</h3>
-      <p>Accuracy averages each excerpt's runs. The 95% range comes from resampling the excerpts. "Found" counts the
+      <p>Accuracy averages each excerpt's runs. The 95% range comes from resampling the excerpts. "# correct" counts the
       answers, out of {N_MODELS * SAMPLES}, that named the right bar.</p>
     </div>
     <p class="colophon">HarmonyBench, updated {date.today():%B %-d, %Y}. {"The test excerpts are unpublished, so they aren't shown here." if public else "Private copy: includes the unpublished test excerpts."}</p>
