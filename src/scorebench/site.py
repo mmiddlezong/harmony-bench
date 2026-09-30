@@ -83,11 +83,6 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
     reg = load_registry()
     items = load_items(subset)
     fp = judge_fingerprint(reg.judge_spec(), WRONG_NOTE)
-    pip_tag = "span" if public else "a"
-
-    def link(iid: str) -> str:
-        return "" if public else f' href="#{iid}"'
-
     # ---------------------------------------------------------------- data
     models = {}
     for mid in MODELS:
@@ -151,6 +146,7 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
     answers_per_item = {it.item_id: sum(len(row["runs"]) for row in per_item[it.item_id]) for it in items}
 
     # ---------------------------------------------------------------- rendering
+    # Deliberately plain: one column, the system font, ordinary tables and links.
 
     def pct(x):
         return f"{100 * x:.0f}%"
@@ -159,84 +155,57 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
         """Model responses without markdown noise (bold markers, heading hashes)."""
         return re.sub(r"(?m)^#+\s*", "", text.replace("**", "")).strip()
 
-    MARK = {"ok": "✓", "no": "✗"}
-    ex_ids = [it.item_id for it in items]
+    def bars(runs) -> str:
+        return " / ".join("?" if r["bar"] is None else str(r["bar"]) for r in runs)
 
-    def bars_of(row) -> str:
-        return " / ".join("–" if r["bar"] is None else str(r["bar"]) for r in row["runs"])
-
-    # ranking: a dot plot on one shared 0-100% axis, with each model's answer pattern beside it
+    # ranking
     rank_rows = ""
     for i, m in enumerate(order, 1):
         d = models[m]
         lo, hi = d["score"].primary["accuracy_ci95"]
-        pattern = "".join(
-            f'<{pip_tag} class="pip {row["state"]}"{link(iid)} title="{iid[-3:]}: {bars_of(row)} (answer {it.label["measure"]})"></{pip_tag}>'
-            for it, iid in zip(items, ex_ids, strict=True)
-            for row in per_item[iid]
-            if row["mid"] == m
+        rank_rows += (
+            f"<tr><td>{i}</td><td>{e(d['name'])}</td><td class=num>{pct(d['acc'])}</td>"
+            f"<td class=num>{pct(lo)}–{pct(hi)}</td></tr>\n"
         )
-        rank_rows += f"""<li>
-      <span class="rn">{i}</span>
-      <span class="who"><b>{e(d["name"])}</b></span>
-      <span class="track"><span class="ci" style="left:{100 * lo:.1f}%;width:{100 * (hi - lo):.1f}%"></span><span class="dot" style="left:{100 * d["acc"]:.1f}%"><span>{pct(d["acc"])}</span></span></span>
-      <span class="pattern">{pattern}</span>
-    </li>"""
-    pattern_w = 13 * n + 3 * (n - 1)  # n squares of 13px with 3px gaps
-    css = f":root {{ --pattern-w: {pattern_w}px; }}\n" + STYLESHEET.read_text()
-    axis = "".join(f'<span style="left:{t}%">{t}%</span>' for t in (0, 25, 50, 75, 100))
 
-    # every answer, as a score: one staff per model, grouped by lab like instrument families
-    labs: dict[str, list[str]] = {}
-    for m in order:
-        labs.setdefault(models[m]["lab"], []).append(m)
-    sys_rows = ""
-    bar_head = "".join(
+    # table of answers: a row per model, a column per excerpt
+    ex_ids = [it.item_id for it in items]
+    head_cells = "".join(
         f"<th>{iid[-3:]}</th>" if public else f'<th><a href="#{iid}">{iid[-3:]}</a></th>' for iid in ex_ids
     )
-    key_row = "".join(f'<td class="k">{it.label["measure"]}</td>' for it in items)
-    for lab, mids in labs.items():
-        for j, m in enumerate(mids):
-            cells = ""
-            for iid in ex_ids:
-                row = next(r for r in per_item[iid] if r["mid"] == m)
-                label = "<i>/</i>".join("–" if r["bar"] is None else str(r["bar"]) for r in row["runs"])
-                cells += f'<td class="c {row["state"]}">{label}</td>'
-            brace = f'<td class="brace" rowspan="{len(mids)}"><span>{e(lab)}</span></td>' if j == 0 else ""
-            sys_rows += (
-                f'<tr class="{"first" if j == 0 else ""}">{brace}<th class="staff">{e(short[m])}</th>{cells}</tr>'
-            )
-    tot_row = "".join(f'<td class="t">{right_answers[iid]}</td>' for iid in ex_ids)
+    key_cells = "".join(f"<td><b>{it.label['measure']}</b></td>" for it in items)
+    model_rows = ""
+    for m in order:
+        cells = ""
+        for iid in ex_ids:
+            row = next(r for r in per_item[iid] if r["mid"] == m)
+            cells += f'<td class="{row["state"]}">{bars(row["runs"])}</td>'
+        model_rows += f"<tr><th>{e(short[m])}</th>{cells}</tr>\n"
+    total_cells = "".join(f"<td>{right_answers[iid]}</td>" for iid in ex_ids)
 
-    # excerpts, each opened by a boxed rehearsal mark
+    # private copy only: every excerpt with each model's full answers
     item_secs = ""
     for it in [] if public else items:  # the public page never touches the excerpt images
         img = base64.b64encode(it.load_image()).decode()
         k, tot = right_answers[it.item_id], answers_per_item[it.item_id]
         rows = ""
         for row in per_item[it.item_id]:
-            runs = "".join(
-                f'<span class="r {"ok" if r["verdict"] == "correct" else "no"}">'
-                f"{MARK['ok' if r['verdict'] == 'correct' else 'no']}&thinsp;{'–' if r['bar'] is None else r['bar']}</span>"
-                for r in row["runs"]
-            )
-            bodies = "".join(
-                f"<div><h5>Run {r['sample'] + 1}<small>{r['reasoning']:,} reasoning tokens, {r['latency']:.0f}s</small></h5>"
-                f"<p>{e(clean(r['text']))}</p></div>"
+            said = "".join(
+                f"<p><b>Try {r['sample'] + 1}</b> ({r['reasoning']:,} reasoning tokens, {r['latency']:.0f}s)</p>"
+                f"<pre>{e(clean(r['text']))}</pre>"
                 for r in row["runs"]
             )
             rows += (
-                f'<details class="{row["state"]}"><summary><span class="m">{e(models[row["mid"]]["name"])}</span>{runs}</summary>'
-                f'<div class="said">{bodies}</div></details>'
+                f'<details class="{row["state"]}"><summary>{e(models[row["mid"]]["name"])}: {bars(row["runs"])}</summary>'
+                f'<div class="said">{said}</div></details>\n'
             )
-        item_secs += f"""
-    <article class="ex" id="{it.item_id}">
-      <div class="exhead"><span class="mark">{it.item_id[-3:]}</span>
-        <div><div class="src">{e(it.meta.get("source", ""))}</div>
-        <div class="ans">The changed note is in bar <b>{it.label["measure"]}</b>. {k} of {tot} answers found it.</div></div></div>
-      <div class="plate"><img src="data:image/png;base64,{img}" alt="Excerpt {it.item_id[-3:]}" loading="lazy"></div>
-      <div class="answers"><div class="anskey"><span>Model</span><span>1st and 2nd try</span></div>{rows}</div>
-    </article>"""
+        item_secs += (
+            f'<h3 id="{it.item_id}">{it.item_id[-3:]} ({e(it.meta.get("source", ""))})</h3>\n'
+            f"<p>The changed note is in bar {it.label['measure']}. {k} of {tot} answers found it.</p>\n"
+            f'<p><img src="data:image/png;base64,{img}" alt="Excerpt {it.item_id[-3:]}"></p>\n'
+            f'<div class="answers">{rows}</div>\n'
+        )
+    excerpts_html = "" if public else f"<h2>Excerpts</h2>\n{item_secs}"
 
     # the tab icon is a file next to the public page; the private copy lives elsewhere, so it carries it inline
     favicon = (
@@ -244,6 +213,7 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
         if public or not FAVICON.exists()
         else "data:image/svg+xml;base64," + base64.b64encode(FAVICON.read_bytes()).decode()
     )
+
     try_html = ""
     if SAMPLE_IMAGE.exists():
         sample = SAMPLE_IMAGE.read_bytes()
@@ -251,87 +221,68 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
             raise ValueError(f"{SAMPLE_IMAGE} is one of the test excerpts; the example must not be")
         src = "sample.png" if public else "data:image/png;base64," + base64.b64encode(sample).decode()
         try_html = f"""<h2 id="try">Try one</h2>
-    <div class="try">
-      <div class="plate"><img src="{src}" alt="Example excerpt: the opening bars of a choir arrangement"></div>
-      <div class="trytext">
-        <p>This is a sample and not included in the benchmark. Here's the prompt:</p>
-        <blockquote>{e(WRONG_NOTE.prompts["image"])}</blockquote>
-        <details class="reveal"><summary>Show the answer</summary><p>Bar {SAMPLE_ANSWER}.</p></details>
-      </div>
-    </div>"""
+<p>This is a sample and not included in the benchmark. Here's the prompt:</p>
+<blockquote>{e(WRONG_NOTE.prompts["image"])}</blockquote>
+<p><img src="{src}" alt="A sample excerpt: the opening bars of a choir arrangement"></p>
+<details><summary>Show the answer</summary><p>Bar {SAMPLE_ANSWER}.</p></details>
+"""
 
-    excerpts_html = (
-        ""
-        if public
-        else '<h2 id="excerpts">The excerpts</h2><p class="fine">Click a model to read what it said.</p>' + item_secs
-    )
     judge_prompt = (
         WRONG_NOTE.judge_prompt.replace("{answer}", "N")
         .replace("{response}", "…the model's full response…")
         .replace("{{", "{")  # the template escapes literal braces for str.format
         .replace("}}", "}")
     )
+    css = STYLESHEET.read_text()
 
     page = f"""<!doctype html>
-    <html lang="en">
-    <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ScoreBench</title>
-    <link rel="icon" type="image/svg+xml" href="{favicon}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ScoreBench</title>
+<link rel="icon" type="image/svg+xml" href="{favicon}">
+<style>
 {css}</style>
-    </head>
-    <body>
-    <div class="page">
+</head>
+<body>
 
-    <header class="title">
-      <h1>Can AI find the wrong note?</h1>
-      <p class="deck">I took {n} excerpts from various musical arrangements and compositions, modified one note, and asked
-      frontier AI models which measure the changed note is in.</p>
-    </header>
+<h1>Can AI find the wrong note?</h1>
+<p>I took {n} excerpts from various musical arrangements and compositions, modified one note, and asked
+frontier AI models which measure the changed note is in.</p>
 
-    {try_html}
+{try_html}
+<h2 id="ranking">Ranking</h2>
+<table>
+<tr><th>#</th><th>Model</th><th>Accuracy</th><th>95% CI</th></tr>
+{rank_rows}</table>
+<p>Each excerpt was given {TIMES} to each model separately to reduce variance.</p>
 
-    <h2 id="ranking">Ranking</h2>
-    <div class="axis"><span></span><span></span><span class="scale">{axis}</span><span></span></div>
-    <ol class="ranking">{rank_rows}</ol>
-    <p class="fine">Gray bars around the accuracy are 95% confidence intervals. Each excerpt was given twice to each model
-    separately to reduce variance. The squares are the {n} excerpts in order: green if both answers were right, gold if one
-    was, hollow if neither was.{"" if public else " Click one to jump to the excerpt."}</p>
+<h2 id="answers">Table of answers</h2>
+<p>The bar each model named on its first and second try. Green means right both times, yellow right once, red
+wrong both times.</p>
+<div class="wide"><table class="grid">
+<tr><th></th>{head_cells}</tr>
+<tr><th>Correct bar</th>{key_cells}</tr>
+{model_rows}<tr><th># correct</th>{total_cells}</tr>
+</table></div>
 
-    <h2 id="score">Table of answers</h2>
-    <div class="scroll"><table class="system">
-      <thead><tr><th></th><th></th>{bar_head}</tr></thead>
-      <tbody>
-        <tr class="key"><td></td><th class="rowlab">Answer</th>{key_row}</tr>
-        {sys_rows}
-        <tr class="tot"><td></td><th class="rowlab"># correct</th>{tot_row}</tr>
-      </tbody>
-    </table></div>
-    <div class="legend"><span><i class="sw ok"></i>Right both times</span><span><i class="sw mix"></i>Right once</span><span><i class="sw no"></i>Wrong both times</span></div>
+{excerpts_html}
+<h2 id="methodology">Methodology</h2>
+<p>Each model got the excerpt image and {"the prompt above" if try_html else "this prompt: " + e(WRONG_NOTE.prompts["image"])},
+with no system prompt and no tools. All models ran at their
+<code>high</code> reasoning setting. Each excerpt was asked {TIMES}, in separate requests.</p>
+<p>GPT-6 Luna read each model's full response next to the right bar number, without the image, and replied correct
+or incorrect:</p>
+<blockquote class="pre">{e(judge_prompt)}</blockquote>
 
-    {excerpts_html}
+<hr>
+<p class="small">Made by <a href="{AUTHOR_URL}">{AUTHOR}</a>. The code is <a href="{REPO_URL}">on GitHub</a>.
+Last updated {date.today():%B %-d, %Y}.{"" if public else " This private copy includes the test excerpts."}</p>
 
-    <h2 id="methodology">Methodology</h2>
-    <div class="notes">
-      <h3>The question</h3>
-      <p>Each model got the excerpt image and this text, with no system prompt and no tools:</p>
-      <blockquote>{e(WRONG_NOTE.prompts["image"])}</blockquote>
-      <p>All models ran at their <code>high</code> reasoning setting. Each excerpt was asked {TIMES}, in separate requests.</p>
-      <h3>The grading</h3>
-      <p>GPT-6 Luna read each model's full response next to the right bar number, without the image, and replied correct
-      or incorrect:</p>
-      <blockquote>{e(judge_prompt)}</blockquote>
-    </div>
-    <p class="colophon">Made by <a href="{AUTHOR_URL}">{AUTHOR}</a>. The code is <a href="{REPO_URL}">on GitHub</a>.
-    Last updated {date.today():%B %-d, %Y}.{"" if public else " This private copy includes the test excerpts."}</p>
-    </div>
-    </body>
-    </html>"""
+</body>
+</html>
+"""
 
     if public:
         _check_public(page, items)

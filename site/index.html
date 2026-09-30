@@ -1,241 +1,94 @@
 <!doctype html>
-    <html lang="en">
-    <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ScoreBench</title>
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-:root { --pattern-w: 237px; }
-/* Stylesheet for the results page (site.py). Inlined into the page when it is built. */
-:root {
-  color-scheme: light;
-  --paper: #f5f0e4; --plate: #fffcf5; --ink: #221d17; --ink-2: #4c4539; --muted: #807767; --hair: #d8cdb8;
-  --accent: #8a3322; --gold: #c3942a;
-  --ok: #2d5a20; --ok-bg: #d9e6cb; --mix: #6a4a05; --mix-bg: #f0dfab; --no: #7c2a18; --no-bg: #eed3c6;
-}
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ScoreBench</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<style>
+/* Stylesheet for the results page (site.py), inlined when the page is built. Kept plain on purpose. */
+body { max-width: 820px; margin: 40px auto; padding: 0 16px; font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color: #222; background: #fff; }
+h1 { font-size: 28px; margin-bottom: 8px; }
+h2 { font-size: 21px; margin-top: 36px; }
+h3 { font-size: 17px; margin-top: 28px; }
+a { color: #0645ad; }
+img { max-width: 100%; border: 1px solid #ddd; }
+blockquote { margin: 12px 0; padding-left: 12px; border-left: 3px solid #ddd; color: #444; }
+blockquote.pre, pre { white-space: pre-wrap; }
+pre { font: inherit; margin: 4px 0 12px; }
+code { font-family: Menlo, Consolas, monospace; font-size: 14px; background: #f2f2f2; padding: 0 3px; }
+summary { cursor: pointer; }
+table { border-collapse: collapse; margin: 8px 0; }
+th, td { border: 1px solid #ddd; padding: 4px 8px; text-align: left; }
+td.num { text-align: right; }
+.wide { overflow-x: auto; }
+.grid td { text-align: center; white-space: nowrap; font-size: 14px; }
+.grid th { white-space: nowrap; font-size: 14px; }
+.ok { background: #d9f0d9; }
+.mix { background: #fcf0c3; }
+.no { background: #f6d5d5; }
+.small { font-size: 14px; color: #555; }
 @media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --paper: #16130e; --plate: #f3eee2; --ink: #ede6d7; --ink-2: #c8bfae; --muted: #968c7c; --hair: #37312a;
-    --accent: #e49b83; --gold: #d8b04f;
-    --ok: #b2d99a; --ok-bg: #233120; --mix: #ecd07b; --mix-bg: #3a3015; --no: #f1a792; --no-bg: #3c2019;
-  }
+  body { color: #ddd; background: #161616; }
+  a { color: #7ab0ff; }
+  img { border-color: #444; background: #fff; }
+  blockquote { border-color: #444; color: #bbb; }
+  code { background: #2a2a2a; }
+  th, td { border-color: #3a3a3a; }
+  .ok { background: #1f3a22; } .mix { background: #3d3514; } .no { background: #402020; }
+  .small { color: #999; }
 }
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body { margin: 0; background: var(--paper); color: var(--ink);
-  font: 17px/1.55 "Newsreader", "Iowan Old Style", Georgia, serif; font-optical-sizing: auto; }
-a { color: inherit; }
-.page { max-width: 1120px; margin: 0 auto; padding: 0 24px 80px; }
-
-/* title page */
-.title { padding: 72px 0 40px; max-width: 760px; }
-@media (max-width: 820px) { .title { padding-top: 44px; } }
-h1 { font-weight: 400; font-size: clamp(44px, 7vw, 76px); line-height: .98; letter-spacing: -0.025em; margin: 0 0 22px; }
-.deck { font-size: 21px; line-height: 1.5; color: var(--ink-2); margin: 0 0 14px; }
-
-/* section titles: italic, like a movement heading */
-h2 { font-weight: 500; font-size: 32px; letter-spacing: -0.01em; margin: 72px 0 18px; }
-
-/* ranking */
-/* the answer pattern is 15 squares of 13px with 3px gaps; both rows and the axis use that fixed width so the scale lines up */
-.axis, .ranking li { display: grid; grid-template-columns: 34px minmax(170px, 250px) minmax(220px, 1fr) var(--pattern-w); gap: 0 24px; align-items: center; }
-.axis { font-family: "Barlow Semi Condensed", sans-serif; font-size: 13px; color: var(--muted); }
-.axis .scale { grid-column: 3; position: relative; height: 18px; }
-.axis .scale span { position: absolute; transform: translateX(-50%); }
-.ranking { list-style: none; margin: 0; padding: 0; }
-.ranking li { padding: 14px 0; }
-.rn { font-style: italic; font-size: 30px; color: var(--muted); line-height: 1; }
-.ranking li:first-child .rn { color: var(--accent); }
-.who b { display: block; font-weight: 600; font-size: 19px; }
-.track { position: relative; height: 34px;
-  background:
-    linear-gradient(var(--hair), var(--hair)) 0 50% / 100% 1px no-repeat,
-    repeating-linear-gradient(90deg, var(--hair) 0 1px, transparent 1px 25%) 0 50% / 100% 40% no-repeat,
-    linear-gradient(var(--hair), var(--hair)) 100% 50% / 1px 40% no-repeat; }
-.ci { position: absolute; top: 14px; height: 6px; background: color-mix(in srgb, var(--ink) 22%, transparent); }
-.dot { position: absolute; top: 9px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: var(--ink); }
-.ranking li:first-child .dot { background: var(--accent); }
-.dot span { position: absolute; left: 50%; bottom: 19px; transform: translateX(-50%); font-family: "Barlow Semi Condensed", sans-serif; font-size: 15px; font-weight: 600; white-space: nowrap; }
-.pattern { display: flex; gap: 3px; }
-.pip { display: block; width: 13px; height: 22px; }
-.pip.ok { background: var(--ok); } .pip.mix { background: var(--gold); }
-.pip.no { background: transparent; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--no) 45%, transparent); }
-.pip:hover { outline: 2px solid var(--ink); outline-offset: 1px; }
-.fine { font-size: 16px; color: var(--ink-2); max-width: 72ch; margin: 0 0 18px; }
-.ranking + .fine { margin: 18px 0 0 58px; }
-@media (max-width: 900px) {
-  .axis, .ranking li { grid-template-columns: 30px 1fr; }
-  .axis .scale, .track { grid-column: 2; } .axis .pl { display: none; } .pattern { grid-column: 2; margin-top: 8px; }
-  .ranking + .fine { margin-left: 0; }
-}
-
-/* every answer, as a score */
-.scroll { overflow-x: auto; padding-bottom: 6px; }
-table.system { border-collapse: separate; border-spacing: 0; min-width: 1000px; width: 100%; }
-.system th, .system td { font-variant-numeric: tabular-nums lining-nums; }
-.system thead th { font-style: italic; font-weight: 400; font-size: 14px; color: var(--muted); text-align: left; padding: 0 0 6px 6px; }
-.system thead th a { text-decoration: none; } .system thead th a:hover { color: var(--accent); }
-.system td.c, .system td.k, .system td.t { border-left: 1px solid var(--ink); text-align: center; height: 36px;
-  font-family: "Barlow Semi Condensed", sans-serif; font-size: 15px; font-weight: 600; min-width: 60px; }
-.system td.c i { font-style: normal; opacity: .4; margin: 0 2px; font-weight: 400; }
-/* final barline: thin line, then thick */
-.system tr > td:last-child { border-right: 5px solid var(--ink); box-shadow: 4px 0 0 -3px var(--paper), 5px 0 0 -3px var(--ink); }
-.system tr.key td.k { font-family: "Newsreader", serif; font-size: 18px; font-weight: 600; border-bottom: 2px solid var(--ink); }
-.system tr.first td { border-top: 8px solid var(--paper); }
-.system td.c { border-bottom: 2px solid var(--paper); }
-.c.ok { background: var(--ok-bg); color: var(--ok); } .c.mix { background: var(--mix-bg); color: var(--mix); } .c.no { background: var(--no-bg); color: var(--no); }
-th.staff { text-align: right; font-style: italic; font-weight: 400; font-size: 17px; padding: 0 12px 0 10px; white-space: nowrap; }
-th.rowlab { text-align: right; font-family: "Barlow Semi Condensed", sans-serif; font-size: 13px; color: var(--muted); font-weight: 500; padding-right: 12px; }
-td.brace { width: 34px; position: relative; padding: 0; }
-/* the brace grouping a lab's models, like a score's bracket around an instrument family */
-td.brace span { position: absolute; top: 12px; bottom: 4px; left: 0; right: 4px; display: flex; align-items: center; justify-content: center;
-  border-right: 3px solid var(--ink); border-radius: 0 12px 12px 0;
-  font-family: "Barlow Semi Condensed", sans-serif; font-size: 12px; color: var(--muted);
-  writing-mode: vertical-rl; transform: rotate(180deg); border-right: 0; border-left: 3px solid var(--ink); border-radius: 12px 0 0 12px; }
-.system tr.tot td.t { color: var(--muted); font-weight: 500; border-top: 2px solid var(--ink); }
-.legend { display: flex; flex-wrap: wrap; gap: 6px 26px; font-size: 16px; color: var(--ink-2); margin-top: 16px; }
-.sw { display: inline-block; width: 22px; height: 14px; vertical-align: -1px; margin-right: 8px; }
-.sw.ok { background: var(--ok-bg); box-shadow: inset 0 0 0 1px var(--ok); } .sw.mix { background: var(--mix-bg); box-shadow: inset 0 0 0 1px var(--mix); } .sw.no { background: var(--no-bg); box-shadow: inset 0 0 0 1px var(--no); }
-
-/* excerpts */
-.ex { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px 36px; padding: 44px 0; border-top: 1px solid var(--hair); }
-@media (max-width: 960px) { .ex { grid-template-columns: 1fr; } }
-.exhead { grid-column: 1 / -1; display: flex; gap: 18px; align-items: center; }
-.mark { font-weight: 600; font-size: 26px; line-height: 1; border: 2px solid var(--ink); padding: 6px 9px 5px; }
-.src { font-family: "Barlow Semi Condensed", sans-serif; font-size: 14px; color: var(--muted); }
-.ans { font-size: 18px; }
-.ans b { font-weight: 600; }
-.plate { background: var(--plate); padding: 12px; box-shadow: 0 0 0 1px var(--hair); align-self: start; }
-.plate img { display: block; width: 100%; height: auto; }
-.anskey { display: flex; gap: 14px; font-family: "Barlow Semi Condensed", sans-serif; font-size: 12px; color: var(--muted); padding-bottom: 6px; }
-.anskey span:first-child { flex: 1; }
-.answers details { border-top: 1px solid var(--hair); }
-.answers details:last-child { border-bottom: 1px solid var(--hair); }
-.answers summary { list-style: none; display: flex; align-items: baseline; gap: 14px; padding: 8px 0; cursor: pointer; }
-.answers summary::-webkit-details-marker { display: none; }
-.answers .m { flex: 1; font-style: italic; }
-.answers summary:hover .m { color: var(--accent); }
-.r { font-family: "Barlow Semi Condensed", sans-serif; font-weight: 600; font-size: 16px; min-width: 42px; text-align: right; }
-.r.ok { color: var(--ok); } .r.no { color: var(--no); }
-.said { padding: 0 0 12px; }
-.said h5 { margin: 8px 0 2px; font-size: 14px; font-weight: 600; }
-.said h5 small { font-family: "Barlow Semi Condensed", sans-serif; font-weight: 400; color: var(--muted); margin-left: 8px; font-size: 13px; }
-.said p { margin: 0; white-space: pre-wrap; font-size: 15px; color: var(--ink-2); }
-
-/* editorial notes */
-.notes { max-width: 68ch; font-size: 16px; color: var(--ink-2); }
-.notes h3 { font-weight: 600; font-size: 17px; margin: 0 0 6px; color: var(--ink); break-after: avoid; }
-.notes p { margin: 0 0 12px; }
-.notes blockquote { margin: 0 0 16px; padding-left: 16px; border-left: 2px solid var(--accent); font-style: italic; white-space: pre-wrap; color: var(--ink); break-inside: avoid; }
-.colophon { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--hair); font-size: 15px; color: var(--muted); }
-.colophon a { color: var(--ink-2); text-underline-offset: 3px; }
-.colophon a:hover { color: var(--accent); }
-
-/* try one: an example excerpt with a click-to-reveal answer */
-.try { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 20px 40px; align-items: start; }
-@media (max-width: 900px) { .try { grid-template-columns: 1fr; } }
-.trytext p { margin: 0 0 12px; color: var(--ink-2); }
-.trytext blockquote { margin: 0 0 18px; padding-left: 16px; border-left: 2px solid var(--accent); font-style: italic; }
-.reveal summary { list-style: none; cursor: pointer; display: inline-block; font-family: "Barlow Semi Condensed", sans-serif;
-  font-size: 15px; border-bottom: 1px solid var(--ink); padding-bottom: 2px; }
-.reveal summary::-webkit-details-marker { display: none; }
-.reveal[open] summary { color: var(--muted); border-color: var(--hair); }
-.reveal p { font-size: 26px; font-style: italic; margin: 10px 0 0; color: var(--accent); }
-
-/* a setting quoted verbatim, e.g. the reasoning effort */
-code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .86em; padding: 1px 5px;
-  background: color-mix(in srgb, var(--ink) 7%, transparent); border-radius: 3px; color: var(--ink); }
 </style>
-    </head>
-    <body>
-    <div class="page">
+</head>
+<body>
 
-    <header class="title">
-      <h1>Can AI find the wrong note?</h1>
-      <p class="deck">I took 15 excerpts from various musical arrangements and compositions, modified one note, and asked
-      frontier AI models which measure the changed note is in.</p>
-    </header>
+<h1>Can AI find the wrong note?</h1>
+<p>I took 15 excerpts from various musical arrangements and compositions, modified one note, and asked
+frontier AI models which measure the changed note is in.</p>
 
-    <h2 id="try">Try one</h2>
-    <div class="try">
-      <div class="plate"><img src="sample.png" alt="Example excerpt: the opening bars of a choir arrangement"></div>
-      <div class="trytext">
-        <p>This is a sample and not included in the benchmark. Here's the prompt:</p>
-        <blockquote>This is an image of part of a score. One note has been modified from the original. Which measure is it in? Answer with its bar number.</blockquote>
-        <details class="reveal"><summary>Show the answer</summary><p>Bar 2.</p></details>
-      </div>
-    </div>
+<h2 id="try">Try one</h2>
+<p>This is a sample and not included in the benchmark. Here's the prompt:</p>
+<blockquote>This is an image of part of a score. One note has been modified from the original. Which measure is it in? Answer with its bar number.</blockquote>
+<p><img src="sample.png" alt="A sample excerpt: the opening bars of a choir arrangement"></p>
+<details><summary>Show the answer</summary><p>Bar 2.</p></details>
 
-    <h2 id="ranking">Ranking</h2>
-    <div class="axis"><span></span><span></span><span class="scale"><span style="left:0%">0%</span><span style="left:25%">25%</span><span style="left:50%">50%</span><span style="left:75%">75%</span><span style="left:100%">100%</span></span><span></span></div>
-    <ol class="ranking"><li>
-      <span class="rn">1</span>
-      <span class="who"><b>GPT-6 Astra</b></span>
-      <span class="track"><span class="ci" style="left:46.7%;width:36.7%"></span><span class="dot" style="left:66.7%"><span>67%</span></span></span>
-      <span class="pattern"><span class="pip mix" title="001: 29 / 28 (answer 29)"></span><span class="pip mix" title="002: 77 / 74 (answer 77)"></span><span class="pip ok" title="003: 58 / 58 (answer 58)"></span><span class="pip ok" title="004: 3 / 3 (answer 3)"></span><span class="pip ok" title="005: 7 / 7 (answer 7)"></span><span class="pip ok" title="006: 8 / 8 (answer 8)"></span><span class="pip ok" title="007: 36 / 36 (answer 36)"></span><span class="pip ok" title="008: 43 / 43 (answer 43)"></span><span class="pip mix" title="009: 45 / 46 (answer 46)"></span><span class="pip mix" title="010: 23 / 22 (answer 22)"></span><span class="pip ok" title="011: 27 / 27 (answer 27)"></span><span class="pip no" title="012: 81 / 81 (answer 83)"></span><span class="pip no" title="013: 18 / 15 (answer 19)"></span><span class="pip mix" title="014: 43 / 39 (answer 39)"></span><span class="pip mix" title="015: 59 / 63 (answer 63)"></span></span>
-    </li><li>
-      <span class="rn">2</span>
-      <span class="who"><b>Claude Opus 5.5</b></span>
-      <span class="track"><span class="ci" style="left:36.7%;width:33.3%"></span><span class="dot" style="left:53.3%"><span>53%</span></span></span>
-      <span class="pattern"><span class="pip no" title="001: 26 / 28 (answer 29)"></span><span class="pip mix" title="002: 77 / 73 (answer 77)"></span><span class="pip ok" title="003: 58 / 58 (answer 58)"></span><span class="pip ok" title="004: 3 / 3 (answer 3)"></span><span class="pip ok" title="005: 7 / 7 (answer 7)"></span><span class="pip no" title="006: 7 / 5 (answer 8)"></span><span class="pip mix" title="007: 34 / 36 (answer 36)"></span><span class="pip ok" title="008: 43 / 43 (answer 43)"></span><span class="pip mix" title="009: 43 / 46 (answer 46)"></span><span class="pip mix" title="010: 22 / 23 (answer 22)"></span><span class="pip no" title="011: 26 / 26 (answer 27)"></span><span class="pip mix" title="012: 83 / 81 (answer 83)"></span><span class="pip mix" title="013: 19 / 15 (answer 19)"></span><span class="pip mix" title="014: 38 / 39 (answer 39)"></span><span class="pip mix" title="015: 63 / 57 (answer 63)"></span></span>
-    </li><li>
-      <span class="rn">3</span>
-      <span class="who"><b>GPT-6 Sol</b></span>
-      <span class="track"><span class="ci" style="left:26.7%;width:40.0%"></span><span class="dot" style="left:46.7%"><span>47%</span></span></span>
-      <span class="pattern"><span class="pip ok" title="001: 29 / 29 (answer 29)"></span><span class="pip no" title="002: 74 / 74 (answer 77)"></span><span class="pip mix" title="003: 58 / 63 (answer 58)"></span><span class="pip ok" title="004: 3 / 3 (answer 3)"></span><span class="pip ok" title="005: 7 / 7 (answer 7)"></span><span class="pip mix" title="006: 8 / 7 (answer 8)"></span><span class="pip ok" title="007: 36 / 36 (answer 36)"></span><span class="pip mix" title="008: 42 / 43 (answer 43)"></span><span class="pip mix" title="009: 44 / 46 (answer 46)"></span><span class="pip ok" title="010: 22 / 22 (answer 22)"></span><span class="pip no" title="011: 26 / 26 (answer 27)"></span><span class="pip no" title="012: 82 / 81 (answer 83)"></span><span class="pip no" title="013: 18 / 23 (answer 19)"></span><span class="pip no" title="014: 40 / 40 (answer 39)"></span><span class="pip no" title="015: 58 / 58 (answer 63)"></span></span>
-    </li><li>
-      <span class="rn">4</span>
-      <span class="who"><b>Claude Sonnet 5</b></span>
-      <span class="track"><span class="ci" style="left:16.7%;width:36.7%"></span><span class="dot" style="left:33.3%"><span>33%</span></span></span>
-      <span class="pattern"><span class="pip no" title="001: – / 28 (answer 29)"></span><span class="pip no" title="002: 74 / 73 (answer 77)"></span><span class="pip mix" title="003: 58 / 62 (answer 58)"></span><span class="pip mix" title="004: 2 / 3 (answer 3)"></span><span class="pip ok" title="005: 7 / 7 (answer 7)"></span><span class="pip mix" title="006: 6 / 8 (answer 8)"></span><span class="pip ok" title="007: 36 / 36 (answer 36)"></span><span class="pip no" title="008: 42 / 42 (answer 43)"></span><span class="pip no" title="009: 44 / 44 (answer 46)"></span><span class="pip no" title="010: 23 / 23 (answer 22)"></span><span class="pip mix" title="011: 27 / 26 (answer 27)"></span><span class="pip no" title="012: 82 / 82 (answer 83)"></span><span class="pip mix" title="013: 19 / 11 (answer 19)"></span><span class="pip no" title="014: 40 / 41 (answer 39)"></span><span class="pip mix" title="015: 58 / 63 (answer 63)"></span></span>
-    </li><li>
-      <span class="rn">5</span>
-      <span class="who"><b>Claude Fable 5.1</b></span>
-      <span class="track"><span class="ci" style="left:13.3%;width:26.7%"></span><span class="dot" style="left:26.7%"><span>27%</span></span></span>
-      <span class="pattern"><span class="pip mix" title="001: 29 / 26 (answer 29)"></span><span class="pip no" title="002: 74 / 74 (answer 77)"></span><span class="pip mix" title="003: 58 / 57 (answer 58)"></span><span class="pip no" title="004: 1 / 1 (answer 3)"></span><span class="pip no" title="005: 8 / 8 (answer 7)"></span><span class="pip mix" title="006: 7 / 8 (answer 8)"></span><span class="pip mix" title="007: 36 / 34 (answer 36)"></span><span class="pip mix" title="008: 43 / 44 (answer 43)"></span><span class="pip mix" title="009: 45 / 46 (answer 46)"></span><span class="pip mix" title="010: 22 / 23 (answer 22)"></span><span class="pip mix" title="011: 27 / 26 (answer 27)"></span><span class="pip no" title="012: 81 / 81 (answer 83)"></span><span class="pip no" title="013: 20 / 16 (answer 19)"></span><span class="pip no" title="014: 38 / 37 (answer 39)"></span><span class="pip no" title="015: 57 / 59 (answer 63)"></span></span>
-    </li><li>
-      <span class="rn">6</span>
-      <span class="who"><b>GPT-6 Luna</b></span>
-      <span class="track"><span class="ci" style="left:10.0%;width:30.0%"></span><span class="dot" style="left:23.3%"><span>23%</span></span></span>
-      <span class="pattern"><span class="pip mix" title="001: 28 / 29 (answer 29)"></span><span class="pip no" title="002: 74 / 74 (answer 77)"></span><span class="pip ok" title="003: 58 / 58 (answer 58)"></span><span class="pip mix" title="004: 3 / 4 (answer 3)"></span><span class="pip no" title="005: 8 / 8 (answer 7)"></span><span class="pip mix" title="006: 8 / 7 (answer 8)"></span><span class="pip mix" title="007: 36 / 35 (answer 36)"></span><span class="pip no" title="008: 44 / 45 (answer 43)"></span><span class="pip no" title="009: 44 / 44 (answer 46)"></span><span class="pip no" title="010: 23 / 23 (answer 22)"></span><span class="pip mix" title="011: 26 / 27 (answer 27)"></span><span class="pip no" title="012: 81 / 82 (answer 83)"></span><span class="pip no" title="013: 10 / 10 (answer 19)"></span><span class="pip no" title="014: 40 / 42 (answer 39)"></span><span class="pip no" title="015: 58 / 58 (answer 63)"></span></span>
-    </li><li>
-      <span class="rn">7</span>
-      <span class="who"><b>Claude Haiku 4.5</b></span>
-      <span class="track"><span class="ci" style="left:0.0%;width:16.7%"></span><span class="dot" style="left:6.7%"><span>7%</span></span></span>
-      <span class="pattern"><span class="pip no" title="001: 27 / 27 (answer 29)"></span><span class="pip no" title="002: 76 / 76 (answer 77)"></span><span class="pip no" title="003: 60 / 61 (answer 58)"></span><span class="pip no" title="004: 5 / 4 (answer 3)"></span><span class="pip no" title="005: 6 / 6 (answer 7)"></span><span class="pip no" title="006: 7 / 6 (answer 8)"></span><span class="pip no" title="007: 8 / 37 (answer 36)"></span><span class="pip no" title="008: 4 / 5 (answer 43)"></span><span class="pip mix" title="009: 46 / 42 (answer 46)"></span><span class="pip no" title="010: 25 / 24 (answer 22)"></span><span class="pip mix" title="011: 27 / 25 (answer 27)"></span><span class="pip no" title="012: 84 / 84 (answer 83)"></span><span class="pip no" title="013: 24 / 17 (answer 19)"></span><span class="pip no" title="014: 46 / 41 (answer 39)"></span><span class="pip no" title="015: 62 / 61 (answer 63)"></span></span>
-    </li></ol>
-    <p class="fine">Gray bars around the accuracy are 95% confidence intervals. Each excerpt was given twice to each model
-    separately to reduce variance. The squares are the 15 excerpts in order: green if both answers were right, gold if one
-    was, hollow if neither was.</p>
+<h2 id="ranking">Ranking</h2>
+<table>
+<tr><th>#</th><th>Model</th><th>Accuracy</th><th>95% CI</th></tr>
+<tr><td>1</td><td>GPT-6 Astra</td><td class=num>67%</td><td class=num>47%–83%</td></tr>
+<tr><td>2</td><td>Claude Opus 5.5</td><td class=num>53%</td><td class=num>37%–70%</td></tr>
+<tr><td>3</td><td>GPT-6 Sol</td><td class=num>47%</td><td class=num>27%–67%</td></tr>
+<tr><td>4</td><td>Claude Sonnet 5</td><td class=num>33%</td><td class=num>17%–53%</td></tr>
+<tr><td>5</td><td>Claude Fable 5.1</td><td class=num>27%</td><td class=num>13%–40%</td></tr>
+<tr><td>6</td><td>GPT-6 Luna</td><td class=num>23%</td><td class=num>10%–40%</td></tr>
+<tr><td>7</td><td>Claude Haiku 4.5</td><td class=num>7%</td><td class=num>0%–17%</td></tr>
+</table>
+<p>Each excerpt was given twice to each model separately to reduce variance.</p>
 
-    <h2 id="score">Table of answers</h2>
-    <div class="scroll"><table class="system">
-      <thead><tr><th></th><th></th><th>001</th><th>002</th><th>003</th><th>004</th><th>005</th><th>006</th><th>007</th><th>008</th><th>009</th><th>010</th><th>011</th><th>012</th><th>013</th><th>014</th><th>015</th></tr></thead>
-      <tbody>
-        <tr class="key"><td></td><th class="rowlab">Answer</th><td class="k">29</td><td class="k">77</td><td class="k">58</td><td class="k">3</td><td class="k">7</td><td class="k">8</td><td class="k">36</td><td class="k">43</td><td class="k">46</td><td class="k">22</td><td class="k">27</td><td class="k">83</td><td class="k">19</td><td class="k">39</td><td class="k">63</td></tr>
-        <tr class="first"><td class="brace" rowspan="3"><span>OpenAI</span></td><th class="staff">Astra</th><td class="c mix">29<i>/</i>28</td><td class="c mix">77<i>/</i>74</td><td class="c ok">58<i>/</i>58</td><td class="c ok">3<i>/</i>3</td><td class="c ok">7<i>/</i>7</td><td class="c ok">8<i>/</i>8</td><td class="c ok">36<i>/</i>36</td><td class="c ok">43<i>/</i>43</td><td class="c mix">45<i>/</i>46</td><td class="c mix">23<i>/</i>22</td><td class="c ok">27<i>/</i>27</td><td class="c no">81<i>/</i>81</td><td class="c no">18<i>/</i>15</td><td class="c mix">43<i>/</i>39</td><td class="c mix">59<i>/</i>63</td></tr><tr class=""><th class="staff">Sol</th><td class="c ok">29<i>/</i>29</td><td class="c no">74<i>/</i>74</td><td class="c mix">58<i>/</i>63</td><td class="c ok">3<i>/</i>3</td><td class="c ok">7<i>/</i>7</td><td class="c mix">8<i>/</i>7</td><td class="c ok">36<i>/</i>36</td><td class="c mix">42<i>/</i>43</td><td class="c mix">44<i>/</i>46</td><td class="c ok">22<i>/</i>22</td><td class="c no">26<i>/</i>26</td><td class="c no">82<i>/</i>81</td><td class="c no">18<i>/</i>23</td><td class="c no">40<i>/</i>40</td><td class="c no">58<i>/</i>58</td></tr><tr class=""><th class="staff">Luna</th><td class="c mix">28<i>/</i>29</td><td class="c no">74<i>/</i>74</td><td class="c ok">58<i>/</i>58</td><td class="c mix">3<i>/</i>4</td><td class="c no">8<i>/</i>8</td><td class="c mix">8<i>/</i>7</td><td class="c mix">36<i>/</i>35</td><td class="c no">44<i>/</i>45</td><td class="c no">44<i>/</i>44</td><td class="c no">23<i>/</i>23</td><td class="c mix">26<i>/</i>27</td><td class="c no">81<i>/</i>82</td><td class="c no">10<i>/</i>10</td><td class="c no">40<i>/</i>42</td><td class="c no">58<i>/</i>58</td></tr><tr class="first"><td class="brace" rowspan="4"><span>Anthropic</span></td><th class="staff">Opus</th><td class="c no">26<i>/</i>28</td><td class="c mix">77<i>/</i>73</td><td class="c ok">58<i>/</i>58</td><td class="c ok">3<i>/</i>3</td><td class="c ok">7<i>/</i>7</td><td class="c no">7<i>/</i>5</td><td class="c mix">34<i>/</i>36</td><td class="c ok">43<i>/</i>43</td><td class="c mix">43<i>/</i>46</td><td class="c mix">22<i>/</i>23</td><td class="c no">26<i>/</i>26</td><td class="c mix">83<i>/</i>81</td><td class="c mix">19<i>/</i>15</td><td class="c mix">38<i>/</i>39</td><td class="c mix">63<i>/</i>57</td></tr><tr class=""><th class="staff">Sonnet</th><td class="c no">–<i>/</i>28</td><td class="c no">74<i>/</i>73</td><td class="c mix">58<i>/</i>62</td><td class="c mix">2<i>/</i>3</td><td class="c ok">7<i>/</i>7</td><td class="c mix">6<i>/</i>8</td><td class="c ok">36<i>/</i>36</td><td class="c no">42<i>/</i>42</td><td class="c no">44<i>/</i>44</td><td class="c no">23<i>/</i>23</td><td class="c mix">27<i>/</i>26</td><td class="c no">82<i>/</i>82</td><td class="c mix">19<i>/</i>11</td><td class="c no">40<i>/</i>41</td><td class="c mix">58<i>/</i>63</td></tr><tr class=""><th class="staff">Fable</th><td class="c mix">29<i>/</i>26</td><td class="c no">74<i>/</i>74</td><td class="c mix">58<i>/</i>57</td><td class="c no">1<i>/</i>1</td><td class="c no">8<i>/</i>8</td><td class="c mix">7<i>/</i>8</td><td class="c mix">36<i>/</i>34</td><td class="c mix">43<i>/</i>44</td><td class="c mix">45<i>/</i>46</td><td class="c mix">22<i>/</i>23</td><td class="c mix">27<i>/</i>26</td><td class="c no">81<i>/</i>81</td><td class="c no">20<i>/</i>16</td><td class="c no">38<i>/</i>37</td><td class="c no">57<i>/</i>59</td></tr><tr class=""><th class="staff">Haiku</th><td class="c no">27<i>/</i>27</td><td class="c no">76<i>/</i>76</td><td class="c no">60<i>/</i>61</td><td class="c no">5<i>/</i>4</td><td class="c no">6<i>/</i>6</td><td class="c no">7<i>/</i>6</td><td class="c no">8<i>/</i>37</td><td class="c no">4<i>/</i>5</td><td class="c mix">46<i>/</i>42</td><td class="c no">25<i>/</i>24</td><td class="c mix">27<i>/</i>25</td><td class="c no">84<i>/</i>84</td><td class="c no">24<i>/</i>17</td><td class="c no">46<i>/</i>41</td><td class="c no">62<i>/</i>61</td></tr>
-        <tr class="tot"><td></td><th class="rowlab"># correct</th><td class="t">5</td><td class="t">2</td><td class="t">9</td><td class="t">8</td><td class="t">8</td><td class="t">6</td><td class="t">9</td><td class="t">6</td><td class="t">5</td><td class="t">5</td><td class="t">6</td><td class="t">1</td><td class="t">2</td><td class="t">2</td><td class="t">3</td></tr>
-      </tbody>
-    </table></div>
-    <div class="legend"><span><i class="sw ok"></i>Right both times</span><span><i class="sw mix"></i>Right once</span><span><i class="sw no"></i>Wrong both times</span></div>
+<h2 id="answers">Table of answers</h2>
+<p>The bar each model named on its first and second try. Green means right both times, yellow right once, red
+wrong both times.</p>
+<div class="wide"><table class="grid">
+<tr><th></th><th>001</th><th>002</th><th>003</th><th>004</th><th>005</th><th>006</th><th>007</th><th>008</th><th>009</th><th>010</th><th>011</th><th>012</th><th>013</th><th>014</th><th>015</th></tr>
+<tr><th>Correct bar</th><td><b>29</b></td><td><b>77</b></td><td><b>58</b></td><td><b>3</b></td><td><b>7</b></td><td><b>8</b></td><td><b>36</b></td><td><b>43</b></td><td><b>46</b></td><td><b>22</b></td><td><b>27</b></td><td><b>83</b></td><td><b>19</b></td><td><b>39</b></td><td><b>63</b></td></tr>
+<tr><th>Astra</th><td class="mix">29 / 28</td><td class="mix">77 / 74</td><td class="ok">58 / 58</td><td class="ok">3 / 3</td><td class="ok">7 / 7</td><td class="ok">8 / 8</td><td class="ok">36 / 36</td><td class="ok">43 / 43</td><td class="mix">45 / 46</td><td class="mix">23 / 22</td><td class="ok">27 / 27</td><td class="no">81 / 81</td><td class="no">18 / 15</td><td class="mix">43 / 39</td><td class="mix">59 / 63</td></tr>
+<tr><th>Opus</th><td class="no">26 / 28</td><td class="mix">77 / 73</td><td class="ok">58 / 58</td><td class="ok">3 / 3</td><td class="ok">7 / 7</td><td class="no">7 / 5</td><td class="mix">34 / 36</td><td class="ok">43 / 43</td><td class="mix">43 / 46</td><td class="mix">22 / 23</td><td class="no">26 / 26</td><td class="mix">83 / 81</td><td class="mix">19 / 15</td><td class="mix">38 / 39</td><td class="mix">63 / 57</td></tr>
+<tr><th>Sol</th><td class="ok">29 / 29</td><td class="no">74 / 74</td><td class="mix">58 / 63</td><td class="ok">3 / 3</td><td class="ok">7 / 7</td><td class="mix">8 / 7</td><td class="ok">36 / 36</td><td class="mix">42 / 43</td><td class="mix">44 / 46</td><td class="ok">22 / 22</td><td class="no">26 / 26</td><td class="no">82 / 81</td><td class="no">18 / 23</td><td class="no">40 / 40</td><td class="no">58 / 58</td></tr>
+<tr><th>Sonnet</th><td class="no">? / 28</td><td class="no">74 / 73</td><td class="mix">58 / 62</td><td class="mix">2 / 3</td><td class="ok">7 / 7</td><td class="mix">6 / 8</td><td class="ok">36 / 36</td><td class="no">42 / 42</td><td class="no">44 / 44</td><td class="no">23 / 23</td><td class="mix">27 / 26</td><td class="no">82 / 82</td><td class="mix">19 / 11</td><td class="no">40 / 41</td><td class="mix">58 / 63</td></tr>
+<tr><th>Fable</th><td class="mix">29 / 26</td><td class="no">74 / 74</td><td class="mix">58 / 57</td><td class="no">1 / 1</td><td class="no">8 / 8</td><td class="mix">7 / 8</td><td class="mix">36 / 34</td><td class="mix">43 / 44</td><td class="mix">45 / 46</td><td class="mix">22 / 23</td><td class="mix">27 / 26</td><td class="no">81 / 81</td><td class="no">20 / 16</td><td class="no">38 / 37</td><td class="no">57 / 59</td></tr>
+<tr><th>Luna</th><td class="mix">28 / 29</td><td class="no">74 / 74</td><td class="ok">58 / 58</td><td class="mix">3 / 4</td><td class="no">8 / 8</td><td class="mix">8 / 7</td><td class="mix">36 / 35</td><td class="no">44 / 45</td><td class="no">44 / 44</td><td class="no">23 / 23</td><td class="mix">26 / 27</td><td class="no">81 / 82</td><td class="no">10 / 10</td><td class="no">40 / 42</td><td class="no">58 / 58</td></tr>
+<tr><th>Haiku</th><td class="no">27 / 27</td><td class="no">76 / 76</td><td class="no">60 / 61</td><td class="no">5 / 4</td><td class="no">6 / 6</td><td class="no">7 / 6</td><td class="no">8 / 37</td><td class="no">4 / 5</td><td class="mix">46 / 42</td><td class="no">25 / 24</td><td class="mix">27 / 25</td><td class="no">84 / 84</td><td class="no">24 / 17</td><td class="no">46 / 41</td><td class="no">62 / 61</td></tr>
+<tr><th># correct</th><td>5</td><td>2</td><td>9</td><td>8</td><td>8</td><td>6</td><td>9</td><td>6</td><td>5</td><td>5</td><td>6</td><td>1</td><td>2</td><td>2</td><td>3</td></tr>
+</table></div>
 
-    
 
-    <h2 id="methodology">Methodology</h2>
-    <div class="notes">
-      <h3>The question</h3>
-      <p>Each model got the excerpt image and this text, with no system prompt and no tools:</p>
-      <blockquote>This is an image of part of a score. One note has been modified from the original. Which measure is it in? Answer with its bar number.</blockquote>
-      <p>All models ran at their <code>high</code> reasoning setting. Each excerpt was asked twice, in separate requests.</p>
-      <h3>The grading</h3>
-      <p>GPT-6 Luna read each model's full response next to the right bar number, without the image, and replied correct
-      or incorrect:</p>
-      <blockquote>A model was shown part of a score in which one note had been modified, and asked which measure the modified note is in.
+<h2 id="methodology">Methodology</h2>
+<p>Each model got the excerpt image and the prompt above,
+with no system prompt and no tools. All models ran at their
+<code>high</code> reasoning setting. Each excerpt was asked twice, in separate requests.</p>
+<p>GPT-6 Luna read each model's full response next to the right bar number, without the image, and replied correct
+or incorrect:</p>
+<blockquote class="pre">A model was shown part of a score in which one note had been modified, and asked which measure the modified note is in.
 
 Correct answer: measure N
 
@@ -245,9 +98,10 @@ The model&#x27;s response:
 &lt;/response&gt;
 
 Is the model&#x27;s answer correct? Reply with JSON: {&quot;verdict&quot;: &quot;correct&quot;} or {&quot;verdict&quot;: &quot;incorrect&quot;}.</blockquote>
-    </div>
-    <p class="colophon">Made by <a href="https://github.com/mmiddlezong">Michael Middlezong</a>. The code is <a href="https://github.com/mmiddlezong/score-bench">on GitHub</a>.
-    Last updated September 29, 2026.</p>
-    </div>
-    </body>
-    </html>
+
+<hr>
+<p class="small">Made by <a href="https://github.com/mmiddlezong">Michael Middlezong</a>. The code is <a href="https://github.com/mmiddlezong/score-bench">on GitHub</a>.
+Last updated September 29, 2026.</p>
+
+</body>
+</html>
