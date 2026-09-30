@@ -132,3 +132,7 @@ td.brace span { position: absolute; top: 12px; bottom: 4px; left: 0; right: 4px;
 .reveal summary::-webkit-details-marker { display: none; }
 .reveal[open] summary { color: var(--muted); border-color: var(--hair); }
 .reveal p { font-size: 26px; font-style: italic; margin: 10px 0 0; color: var(--accent); }
+
+/* a setting quoted verbatim, e.g. the reasoning effort */
+code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .86em; padding: 1px 5px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent); border-radius: 3px; color: var(--ink); }

@@ -143,6 +143,10 @@ td.brace span { position: absolute; top: 12px; bottom: 4px; left: 0; right: 4px;
 .reveal summary::-webkit-details-marker { display: none; }
 .reveal[open] summary { color: var(--muted); border-color: var(--hair); }
 .reveal p { font-size: 26px; font-style: italic; margin: 10px 0 0; color: var(--accent); }
+
+/* a setting quoted verbatim, e.g. the reasoning effort */
+code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .86em; padding: 1px 5px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent); border-radius: 3px; color: var(--ink); }
 </style>
     </head>
     <body>
@@ -220,12 +224,12 @@ td.brace span { position: absolute; top: 12px; bottom: 4px; left: 0; right: 4px;
 
     
 
-    <h2 id="notes">Notes</h2>
+    <h2 id="methodology">Methodology</h2>
     <div class="notes">
       <h3>The question</h3>
       <p>Each model got the excerpt image and this text, with no system prompt and no tools:</p>
       <blockquote>This is an image of part of a score. One note has been modified from the original. Which measure is it in? Answer with its bar number.</blockquote>
-      <p>All models ran at their high reasoning setting. Each excerpt was asked twice, in separate requests.</p>
+      <p>All models ran at their <code>high</code> reasoning setting. Each excerpt was asked twice, in separate requests.</p>
       <h3>The grading</h3>
       <p>GPT-6 Luna read each model's full response next to the right bar number, without the image, and replied correct
       or incorrect:</p>
@@ -239,9 +243,6 @@ The model&#x27;s response:
 &lt;/response&gt;
 
 Is the model&#x27;s answer correct? Reply with JSON: {&quot;verdict&quot;: &quot;correct&quot;} or {&quot;verdict&quot;: &quot;incorrect&quot;}.</blockquote>
-      <h3>The numbers</h3>
-      <p>Accuracy averages each excerpt's runs. The 95% range comes from resampling the excerpts. "# correct" counts the
-      answers, out of 14, that named the right bar.</p>
     </div>
     <p class="colophon">HarmonyBench, updated September 29, 2026. The test excerpts are unpublished, so they aren't shown here.</p>
     </div>

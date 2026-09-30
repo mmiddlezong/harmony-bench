@@ -115,7 +115,6 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
         }
     order = sorted(MODELS, key=lambda m: (-models[m]["acc"], models[m]["cost"]))
     short = {m: models[m]["name"].replace("GPT-6 ", "").replace("Claude ", "").split(" ")[0] for m in MODELS}
-    N_MODELS = len(MODELS)
     SAMPLES = max(len(v) for m in MODELS for v in models[m]["by_item"].values())
     n = len(items)
     TIMES = {1: "once", 2: "twice"}.get(SAMPLES, f"{SAMPLES} times")
@@ -307,19 +306,16 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
 
     {excerpts_html}
 
-    <h2 id="notes">Notes</h2>
+    <h2 id="methodology">Methodology</h2>
     <div class="notes">
       <h3>The question</h3>
       <p>Each model got the excerpt image and this text, with no system prompt and no tools:</p>
       <blockquote>{e(WRONG_NOTE.prompts["image"])}</blockquote>
-      <p>All models ran at their high reasoning setting. Each excerpt was asked {TIMES}, in separate requests.</p>
+      <p>All models ran at their <code>high</code> reasoning setting. Each excerpt was asked {TIMES}, in separate requests.</p>
       <h3>The grading</h3>
       <p>GPT-6 Luna read each model's full response next to the right bar number, without the image, and replied correct
       or incorrect:</p>
       <blockquote>{e(judge_prompt)}</blockquote>
-      <h3>The numbers</h3>
-      <p>Accuracy averages each excerpt's runs. The 95% range comes from resampling the excerpts. "# correct" counts the
-      answers, out of {N_MODELS * SAMPLES}, that named the right bar.</p>
     </div>
     <p class="colophon">HarmonyBench, updated {date.today():%B %-d, %Y}. {"The test excerpts are unpublished, so they aren't shown here." if public else "Private copy: includes the unpublished test excerpts."}</p>
     </div>
