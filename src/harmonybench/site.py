@@ -294,9 +294,7 @@ def render(subset: str = "wrong_note", public: bool = True) -> str:
     separately to reduce variance. The squares are the {n} excerpts in order: green if both answers were right, gold if one
     was, hollow if neither was.{"" if public else " Click one to jump to the excerpt."}</p>
 
-    <h2 id="score">Every answer</h2>
-    <p class="fine">Laid out like a score, with a staff for each model and a bar for each excerpt. The top line is the bar
-    where the note was changed; each cell shows the bar a model named on its first and second try.</p>
+    <h2 id="score">Table of answers</h2>
     <div class="scroll"><table class="system">
       <thead><tr><th></th><th></th>{bar_head}</tr></thead>
       <tbody>
